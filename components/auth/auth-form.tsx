@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { startTransition, useEffect, useRef, useState, type FormEvent } from "react";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient, hasSupabaseConfig } from "@/lib/supabase/client";
 
@@ -15,22 +15,22 @@ type AuthFormProps = {
 function getAuthCopy(mode: AuthMode) {
   if (mode === "login") {
     return {
-      title: "Inicia sesion",
-      subtitle: "Accede a tu espacio de trabajo en OmniScale con tu correo y contrasena.",
-      button: "Entrar",
+      title: "Iniciar sesion",
+      subtitle: "",
+      button: "Continuar con email",
       alternateCta: "Crear cuenta",
       alternateHref: "/signup",
-      alternateText: "Aun no tienes cuenta?",
+      alternateText: "Olvide mi contrasena",
     };
   }
 
   return {
-    title: "Crea tu cuenta",
-    subtitle: "Registrate con email en Supabase y deja lista la base para tus siguientes modulos.",
-    button: "Registrarme",
-    alternateCta: "Ir a login",
+    title: "Crear cuenta",
+    subtitle: "",
+    button: "Crear cuenta con email",
+    alternateCta: "Iniciar sesion",
     alternateHref: "/login",
-    alternateText: "Ya tienes una cuenta?",
+    alternateText: "Ya tienes cuenta?",
   };
 }
 
@@ -67,6 +67,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const copy = getAuthCopy(mode);
   const isConfigured = hasSupabaseConfig();
+  const hasNavigatedRef = useRef(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -86,7 +87,6 @@ export function AuthForm({ mode }: AuthFormProps) {
 
     const supabaseClient = supabase;
     let active = true;
-    let unsubscribe = () => {};
 
     async function handleEmailConfirmationCallback() {
       const url = new URL(window.location.href);
@@ -161,28 +161,20 @@ export function AuthForm({ mode }: AuthFormProps) {
         return;
       }
 
+      router.prefetch("/dashboard");
+
       supabaseClient.auth.getSession().then(({ data }) => {
-        if (active && data.session) {
-          router.replace("/workspace");
+        if (active && data.session && !hasNavigatedRef.current) {
+          hasNavigatedRef.current = true;
+          startTransition(() => {
+            router.replace("/dashboard");
+          });
         }
       });
-
-      const {
-        data: { subscription },
-      } = supabaseClient.auth.onAuthStateChange((_event, session) => {
-        if (active && session) {
-          router.replace("/workspace");
-        }
-      });
-
-      unsubscribe = () => {
-        subscription.unsubscribe();
-      };
     });
 
     return () => {
       active = false;
-      unsubscribe();
     };
   }, [isConfigured, mode, router]);
 
@@ -218,8 +210,12 @@ export function AuthForm({ mode }: AuthFormProps) {
           throw signInError;
         }
 
-        router.push("/workspace");
-        router.refresh();
+        if (!hasNavigatedRef.current) {
+          hasNavigatedRef.current = true;
+          startTransition(() => {
+            router.replace("/dashboard");
+          });
+        }
         return;
       }
 
@@ -236,8 +232,12 @@ export function AuthForm({ mode }: AuthFormProps) {
       }
 
       if (data.session) {
-        router.push("/workspace");
-        router.refresh();
+        if (!hasNavigatedRef.current) {
+          hasNavigatedRef.current = true;
+          startTransition(() => {
+            router.replace("/dashboard");
+          });
+        }
         return;
       }
 
@@ -256,40 +256,35 @@ export function AuthForm({ mode }: AuthFormProps) {
   }
 
   return (
-    <div className="w-full rounded-[2rem] border border-brand-primary/10 bg-white/90 p-8 shadow-[0_30px_80px_rgba(7,19,37,0.08)] backdrop-blur sm:p-10">
-      <div className="mb-8 space-y-3">
-        <span className="inline-flex rounded-full bg-brand-secondary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-brand-secondary">
-          {mode === "login" ? "Acceso" : "Registro"}
-        </span>
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-brand-primary sm:text-4xl">{copy.title}</h1>
-          <p className="max-w-lg text-sm leading-6 text-brand-support sm:text-base">{copy.subtitle}</p>
-        </div>
+    <div className="w-full text-brand-primary">
+      <div className="mb-5">
+        <h1 className="text-[22px] font-semibold text-[#1e293b]">{copy.title}</h1>
+        {copy.subtitle ? (
+          <p className="mt-2 text-sm leading-6 text-[#475569]">{copy.subtitle}</p>
+        ) : null}
       </div>
 
       <form className="space-y-5" onSubmit={handleSubmit}>
         <label className="block space-y-2">
-          <span className="text-sm font-semibold text-brand-primary">Email</span>
           <input
             type="email"
             autoComplete="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="tu@empresa.com"
-            className="w-full rounded-2xl border border-surface-muted bg-white px-4 py-3 text-base text-brand-primary outline-none transition focus:border-brand-secondary focus:ring-4 focus:ring-brand-secondary/10"
+            placeholder="Correo electronico"
+            className="w-full rounded-[10px] border border-[#cbd5e1] bg-white px-4 py-3 text-[14px] text-[#0f172a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#1e3a8a]"
             required
           />
         </label>
 
         <label className="block space-y-2">
-          <span className="text-sm font-semibold text-brand-primary">Contrasena</span>
           <input
             type="password"
             autoComplete={mode === "login" ? "current-password" : "new-password"}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="Minimo 6 caracteres"
-            className="w-full rounded-2xl border border-surface-muted bg-white px-4 py-3 text-base text-brand-primary outline-none transition focus:border-brand-secondary focus:ring-4 focus:ring-brand-secondary/10"
+            placeholder="Contrasena"
+            className="w-full rounded-[10px] border border-[#cbd5e1] bg-white px-4 py-3 text-[14px] text-[#0f172a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#1e3a8a]"
             minLength={6}
             required
           />
@@ -316,18 +311,36 @@ export function AuthForm({ mode }: AuthFormProps) {
         <button
           type="submit"
           disabled={isPending || !isConfigured}
-          className="w-full rounded-2xl bg-brand-primary px-4 py-3 text-base font-semibold text-white transition hover:bg-brand-secondary disabled:cursor-not-allowed disabled:bg-brand-primary/45"
+          className="w-full rounded-[10px] bg-[#0f172a] px-4 py-3 text-[14px] font-semibold text-white transition hover:bg-[#1e293b] disabled:cursor-not-allowed disabled:opacity-45"
         >
           {isPending ? "Procesando..." : copy.button}
         </button>
       </form>
 
-      <div className="mt-6 flex items-center justify-between gap-4 border-t border-surface-muted pt-5 text-sm text-brand-support">
-        <span>{copy.alternateText}</span>
-        <Link href={copy.alternateHref} className="font-semibold text-brand-secondary transition hover:text-brand-primary">
+      {!isConfigured ? (
+        <p className="mt-5 rounded-[10px] border border-dashed border-brand-primary/15 bg-brand-primary/4 px-4 py-3 text-sm text-brand-support">
+          Falta configurar `.env.local` con las variables publicas de Supabase.
+        </p>
+      ) : null}
+
+      <div className="mt-4 flex items-center justify-between text-[13px]">
+        {mode === "login" ? (
+          <button type="button" className="text-[#1e3a8a] transition hover:text-[#0f172a]">
+            {copy.alternateText}
+          </button>
+        ) : (
+          <span className="text-[#64748b]">{copy.alternateText}</span>
+        )}
+        <Link href={copy.alternateHref} className="font-medium text-[#1e3a8a] transition hover:text-[#0f172a]">
           {copy.alternateCta}
         </Link>
       </div>
+
+      {mode === "signup" ? (
+        <p className="mt-5 text-center text-xs text-[#94a3b8]">
+          Te enviaremos un correo para confirmar tu cuenta antes del primer acceso.
+        </p>
+      ) : null}
     </div>
   );
 }

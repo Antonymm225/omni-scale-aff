@@ -66,7 +66,6 @@ export function SessionPanel() {
 
     await supabase.auth.signOut();
     router.replace("/login");
-    router.refresh();
   }
 
   if (loading) {
@@ -113,9 +112,9 @@ export function SessionPanel() {
   return (
     <div className="rounded-[2rem] border border-brand-primary/10 bg-white p-8 shadow-[0_24px_64px_rgba(7,19,37,0.08)]">
       <p className="text-sm font-semibold uppercase tracking-[0.3em] text-brand-secondary">Sesion activa</p>
-      <h1 className="mt-4 text-4xl font-bold text-brand-primary">Workspace temporal</h1>
+      <h1 className="mt-4 text-4xl font-bold text-brand-primary">Dashboard temporal</h1>
       <p className="mt-4 max-w-2xl text-lg leading-8 text-brand-support">
-        La autenticacion por email ya funciona. Este espacio queda como destino provisional mientras construimos el home real.
+        La autenticacion por email ya funciona. Este espacio queda como destino provisional mientras construimos el dashboard real.
       </p>
 
       <div className="mt-8 rounded-[1.5rem] border border-surface-muted bg-slate-50/70 p-5">

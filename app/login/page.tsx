@@ -5,8 +5,8 @@ export default function LoginPage() {
   return (
     <AuthShell
       eyebrow="Login"
-      title="Inteligencia financiera con una entrada clara y sobria."
-      description="Una pantalla de acceso enfocada en rapidez, confianza y base tecnica para crecer sobre Supabase."
+      title="Login"
+      description="Trackea mejor el rendimiento de tus ofertas de affiliate marketing para testear, optimizar y escalar sin perder el control."
     >
       <AuthForm mode="login" />
     </AuthShell>
