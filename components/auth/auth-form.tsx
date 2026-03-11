@@ -15,22 +15,20 @@ type AuthFormProps = {
 function getAuthCopy(mode: AuthMode) {
   if (mode === "login") {
     return {
-      title: "Iniciar sesion",
-      subtitle: "",
+      title: "Iniciar sesión",
       button: "Continuar con email",
       alternateCta: "Crear cuenta",
       alternateHref: "/signup",
-      alternateText: "Olvide mi contrasena",
+      alternateText: "Olvidé mi contraseña",
     };
   }
 
   return {
     title: "Crear cuenta",
-    subtitle: "",
     button: "Crear cuenta con email",
-    alternateCta: "Iniciar sesion",
+    alternateCta: "Iniciar sesión",
     alternateHref: "/login",
-    alternateText: "Ya tienes cuenta?",
+    alternateText: "¿Ya tienes cuenta?",
   };
 }
 
@@ -38,22 +36,26 @@ function translateSupabaseError(message: string) {
   const lowered = message.toLowerCase();
 
   if (lowered.includes("invalid login credentials")) {
-    return "Correo o contrasena incorrectos.";
+    return "Correo o contraseña incorrectos.";
   }
 
   if (lowered.includes("email not confirmed")) {
-    return "Tu correo aun no esta confirmado. Revisa la bandeja de entrada.";
+    return "Tu correo aún no está confirmado. Revisa la bandeja de entrada.";
   }
 
   if (lowered.includes("password should be at least")) {
-    return "La contrasena debe tener al menos 6 caracteres.";
+    return "La contraseña debe tener al menos 6 caracteres.";
   }
 
   if (lowered.includes("user already registered")) {
-    return "Ese correo ya esta registrado. Prueba iniciar sesion.";
+    return "Ese correo ya está registrado. Prueba iniciar sesión.";
   }
 
-  return "No se pudo completar la operacion. Revisa los datos e intentalo otra vez.";
+  if (lowered.includes("same password")) {
+    return "Elige una contraseña distinta a la anterior.";
+  }
+
+  return "No se pudo completar la operación. Revisa los datos e inténtalo otra vez.";
 }
 
 function isEmailOtpType(value: string | null): value is EmailOtpType {
@@ -73,6 +75,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isPending, setIsPending] = useState(false);
+  const [isResetPending, setIsResetPending] = useState(false);
 
   useEffect(() => {
     if (mode !== "login" || !isConfigured) {
@@ -88,15 +91,19 @@ export function AuthForm({ mode }: AuthFormProps) {
     const supabaseClient = supabase;
     let active = true;
 
-    async function handleEmailConfirmationCallback() {
+    async function handleLoginCallbacks() {
       const url = new URL(window.location.href);
       const searchParams = url.searchParams;
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
 
-      const authCode = searchParams.get("code");
-      const tokenHash = searchParams.get("token_hash");
-      const otpType = searchParams.get("type");
-      const redirectError = searchParams.get("error_description") || hashParams.get("error_description");
+      if (searchParams.get("reset") === "password-updated") {
+        setMessage("Contraseña actualizada. Ya puedes iniciar sesión.");
+        window.history.replaceState(window.history.state, "", "/login");
+        return;
+      }
+
+      const redirectError =
+        searchParams.get("error_description") || hashParams.get("error_description");
 
       if (redirectError) {
         setError(decodeURIComponent(redirectError));
@@ -104,19 +111,26 @@ export function AuthForm({ mode }: AuthFormProps) {
         return;
       }
 
+      const authCode = searchParams.get("code");
+
       if (authCode) {
-        const { data, error: exchangeError } = await supabaseClient.auth.exchangeCodeForSession(authCode);
+        const { data, error: exchangeError } = await supabaseClient.auth.exchangeCodeForSession(
+          authCode,
+        );
 
         if (exchangeError) {
           setError(translateSupabaseError(exchangeError.message));
         } else if (data.session) {
           await supabaseClient.auth.signOut();
-          setMessage("Cuenta verificada correctamente. Ya puedes iniciar sesion.");
+          setMessage("Cuenta verificada correctamente. Ya puedes iniciar sesión.");
         }
 
         window.history.replaceState(window.history.state, "", "/login");
         return;
       }
+
+      const tokenHash = searchParams.get("token_hash");
+      const otpType = searchParams.get("type");
 
       if (tokenHash && isEmailOtpType(otpType)) {
         const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
@@ -128,7 +142,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           setError(translateSupabaseError(verifyError.message));
         } else if (data.session || otpType === "signup" || otpType === "email") {
           await supabaseClient.auth.signOut();
-          setMessage("Cuenta verificada correctamente. Ya puedes iniciar sesion.");
+          setMessage("Cuenta verificada correctamente. Ya puedes iniciar sesión.");
         }
 
         window.history.replaceState(window.history.state, "", "/login");
@@ -149,14 +163,14 @@ export function AuthForm({ mode }: AuthFormProps) {
           setError(translateSupabaseError(sessionError.message));
         } else if (hashType === "signup" || hashType === "email") {
           await supabaseClient.auth.signOut();
-          setMessage("Cuenta verificada correctamente. Ya puedes iniciar sesion.");
+          setMessage("Cuenta verificada correctamente. Ya puedes iniciar sesión.");
         }
 
         window.history.replaceState(window.history.state, "", "/login");
       }
     }
 
-    handleEmailConfirmationCallback().then(() => {
+    handleLoginCallbacks().then(() => {
       if (!active) {
         return;
       }
@@ -185,7 +199,7 @@ export function AuthForm({ mode }: AuthFormProps) {
 
     if (!isConfigured) {
       setError(
-        "Faltan las variables NEXT_PUBLIC_SUPABASE_URL y una clave publica de Supabase.",
+        "Faltan las variables NEXT_PUBLIC_SUPABASE_URL y una clave pública de Supabase.",
       );
       return;
     }
@@ -241,13 +255,13 @@ export function AuthForm({ mode }: AuthFormProps) {
         return;
       }
 
-      setMessage("Cuenta creada. Revisa tu correo para confirmar el acceso antes de iniciar sesion.");
+      setMessage("Cuenta creada. Revisa tu correo para confirmar el acceso antes de iniciar sesión.");
       setPassword("");
     } catch (authError) {
       const friendlyMessage =
         authError instanceof Error
           ? translateSupabaseError(authError.message)
-          : "Ocurrio un error inesperado.";
+          : "Ocurrió un error inesperado.";
 
       setError(friendlyMessage);
     } finally {
@@ -255,13 +269,57 @@ export function AuthForm({ mode }: AuthFormProps) {
     }
   }
 
+  async function handleForgotPassword() {
+    setError("");
+    setMessage("");
+
+    if (!email.trim()) {
+      setError("Escribe tu correo electrónico para enviarte el enlace de recuperación.");
+      return;
+    }
+
+    if (!isConfigured) {
+      setError(
+        "Faltan las variables NEXT_PUBLIC_SUPABASE_URL y una clave pública de Supabase.",
+      );
+      return;
+    }
+
+    const supabase = getSupabaseBrowserClient();
+
+    if (!supabase) {
+      setError("No se pudo inicializar Supabase.");
+      return;
+    }
+
+    setIsResetPending(true);
+
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (resetError) {
+        throw resetError;
+      }
+
+      setMessage("Te enviamos un correo para restablecer tu contraseña.");
+    } catch (resetAuthError) {
+      const friendlyMessage =
+        resetAuthError instanceof Error
+          ? translateSupabaseError(resetAuthError.message)
+          : "No se pudo enviar el correo de recuperación.";
+
+      setError(friendlyMessage);
+    } finally {
+      setIsResetPending(false);
+    }
+  }
+
   return (
     <div className="w-full text-brand-primary">
       <div className="mb-5">
         <h1 className="text-[22px] font-semibold text-[#1e293b]">{copy.title}</h1>
-        {copy.subtitle ? (
-          <p className="mt-2 text-sm leading-6 text-[#475569]">{copy.subtitle}</p>
-        ) : null}
       </div>
 
       <form className="space-y-5" onSubmit={handleSubmit}>
@@ -271,7 +329,7 @@ export function AuthForm({ mode }: AuthFormProps) {
             autoComplete="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="Correo electronico"
+            placeholder="Correo electrónico"
             className="w-full rounded-[10px] border border-[#cbd5e1] bg-white px-4 py-3 text-[14px] text-[#0f172a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#1e3a8a]"
             required
           />
@@ -283,7 +341,7 @@ export function AuthForm({ mode }: AuthFormProps) {
             autoComplete={mode === "login" ? "current-password" : "new-password"}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="Contrasena"
+            placeholder="Contraseña"
             className="w-full rounded-[10px] border border-[#cbd5e1] bg-white px-4 py-3 text-[14px] text-[#0f172a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#1e3a8a]"
             minLength={6}
             required
@@ -304,7 +362,7 @@ export function AuthForm({ mode }: AuthFormProps) {
 
         {!isConfigured ? (
           <p className="rounded-2xl border border-dashed border-brand-primary/15 bg-brand-primary/4 px-4 py-3 text-sm text-brand-support">
-            Falta configurar `.env.local` con las variables publicas de Supabase.
+            Falta configurar `.env.local` con las variables públicas de Supabase.
           </p>
         ) : null}
 
@@ -317,16 +375,15 @@ export function AuthForm({ mode }: AuthFormProps) {
         </button>
       </form>
 
-      {!isConfigured ? (
-        <p className="mt-5 rounded-[10px] border border-dashed border-brand-primary/15 bg-brand-primary/4 px-4 py-3 text-sm text-brand-support">
-          Falta configurar `.env.local` con las variables publicas de Supabase.
-        </p>
-      ) : null}
-
       <div className="mt-4 flex items-center justify-between text-[13px]">
         {mode === "login" ? (
-          <button type="button" className="text-[#1e3a8a] transition hover:text-[#0f172a]">
-            {copy.alternateText}
+          <button
+            type="button"
+            onClick={handleForgotPassword}
+            disabled={isResetPending || !isConfigured}
+            className="text-[#1e3a8a] transition hover:text-[#0f172a] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isResetPending ? "Enviando..." : copy.alternateText}
           </button>
         ) : (
           <span className="text-[#64748b]">{copy.alternateText}</span>
