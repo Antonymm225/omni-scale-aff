@@ -68,6 +68,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const copy = getAuthCopy(mode);
   const isConfigured = hasSupabaseConfig();
   const hasNavigatedRef = useRef(false);
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -211,6 +212,12 @@ export function AuthForm({ mode }: AuthFormProps) {
     setIsPending(true);
 
     try {
+      if (mode === "signup" && !fullName.trim()) {
+        setError("Escribe tu nombre y apellido.");
+        setIsPending(false);
+        return;
+      }
+
       if (mode === "login") {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
@@ -234,6 +241,9 @@ export function AuthForm({ mode }: AuthFormProps) {
         email,
         password,
         options: {
+          data: {
+            full_name: fullName.trim(),
+          },
           emailRedirectTo: `${window.location.origin}/login`,
         },
       });
@@ -253,6 +263,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       }
 
       setMessage("Cuenta creada. Revisa tu correo para confirmar el acceso antes de iniciar sesión.");
+      setFullName("");
       setPassword("");
     } catch (authError) {
       const friendlyMessage =
@@ -273,6 +284,20 @@ export function AuthForm({ mode }: AuthFormProps) {
       </div>
 
       <form className="space-y-5" onSubmit={handleSubmit}>
+        {mode === "signup" ? (
+          <label className="block space-y-2">
+            <input
+              type="text"
+              autoComplete="name"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              placeholder="Nombre y apellido"
+              className="w-full rounded-[10px] border border-[#cbd5e1] bg-white px-4 py-3 text-[14px] text-[#0f172a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#1e3a8a]"
+              required
+            />
+          </label>
+        ) : null}
+
         <label className="block space-y-2">
           <input
             type="email"
