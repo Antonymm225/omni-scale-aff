@@ -1,37 +1,14 @@
-function TopOffersSkeleton({ title }: { title: string }) {
+function TopCardSkeleton() {
   return (
-    <article className="rounded-[1.75rem] border border-brand-primary/10 bg-white p-5 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
-      <div className="flex items-center justify-between gap-3">
-        <div className={`h-9 animate-pulse rounded-xl bg-[#d9dee7] ${title.includes("best") ? "w-48" : "w-52"}`} />
-        <div className="h-8 w-24 animate-pulse rounded-2xl bg-[#d9dee7]" />
+    <article className="rounded-[1.75rem] border border-brand-primary/10 bg-white p-4 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
+      <div className="flex items-center justify-between gap-4">
+        <div className="skeleton-shimmer h-7 w-40 rounded-sm" />
+        <div className="skeleton-shimmer h-9 w-[5.5rem] rounded-sm" />
       </div>
 
-      <div className="mt-5 space-y-3">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <div key={index} className="rounded-[1.15rem] bg-[#f4f7fb] px-4 py-3.5">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex min-w-0 flex-1 gap-3">
-                <div className="mt-0.5 h-9 w-9 shrink-0 animate-pulse rounded-lg bg-[#dbe2eb]" />
-                <div className="min-w-0 flex-1">
-                  <div className="h-3 w-6 animate-pulse rounded-md bg-[#dbe2eb]" />
-                  <div
-                    className={`mt-2 h-4 animate-pulse rounded-md bg-[#dbe2eb] ${
-                      index === 0 ? "w-32" : index === 1 ? "w-44" : "w-36"
-                    }`}
-                  />
-                  <div
-                    className={`mt-2 h-3 animate-pulse rounded-md bg-[#dbe2eb] ${
-                      index === 0 ? "w-48" : index === 1 ? "w-52" : "w-44"
-                    }`}
-                  />
-                </div>
-              </div>
-              <div className="w-24 pt-0.5">
-                <div className="ml-auto h-4 w-16 animate-pulse rounded-md bg-[#dbe2eb]" />
-                <div className="mt-2 ml-auto h-3 w-20 animate-pulse rounded-md bg-[#dbe2eb]" />
-              </div>
-            </div>
-          </div>
+      <div className="mt-4 space-y-3">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="skeleton-shimmer h-[3.1rem] rounded-[0.8rem]" />
         ))}
       </div>
     </article>
@@ -42,52 +19,57 @@ export default function Loading() {
   return (
     <div className="space-y-6">
       <header className="mb-8">
-        <div className="h-12 w-40 animate-pulse rounded-xl bg-[#d9dee7]" />
+        <div className="skeleton-shimmer h-12 w-40 rounded-sm" />
       </header>
 
-      <div className="rounded-[1.75rem] border border-brand-primary/10 bg-white p-6 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
+      <div className="rounded-[1.75rem] border border-brand-primary/10 bg-white p-5 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap gap-2">
-            <div className="h-10 w-[4.6rem] animate-pulse rounded-xl bg-[#9ca6b5]" />
-            <div className="h-10 w-[4.8rem] animate-pulse rounded-xl border border-[#d9e1ec] bg-[#f7f9fc]" />
-            <div className="h-10 w-[5.3rem] animate-pulse rounded-xl border border-[#d9e1ec] bg-[#f7f9fc]" />
-            <div className="h-10 w-[6.9rem] animate-pulse rounded-xl border border-[#d9e1ec] bg-[#f7f9fc]" />
+            <div className="flex h-10 w-[4.6rem] items-center justify-center rounded-xl bg-brand-primary text-sm font-semibold text-white">
+              Hoy
+            </div>
+            <div className="flex h-10 w-[4.8rem] items-center justify-center rounded-xl border border-[#cdd7e4] bg-white text-sm font-semibold text-[#334a67]">
+              Ayer
+            </div>
+            <div className="flex h-10 w-[5.3rem] items-center justify-center rounded-xl border border-[#cdd7e4] bg-white text-sm font-semibold text-[#334a67]">
+              7 días
+            </div>
+            <div className="flex h-10 w-[6.9rem] items-center justify-center rounded-xl border border-[#cdd7e4] bg-white text-sm font-semibold text-[#334a67]">
+              Este mes
+            </div>
           </div>
-          <div className="h-11 w-40 animate-pulse rounded-xl bg-[#edf1f6]" />
+          <div className="flex h-11 w-40 items-center justify-center rounded-xl bg-brand-primary text-sm font-semibold text-white">
+            Agregar oferta
+          </div>
         </div>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <TopOffersSkeleton title="Top 5 best offers" />
-        <TopOffersSkeleton title="Top 5 worst offers" />
+        <TopCardSkeleton />
+        <TopCardSkeleton />
       </div>
 
       <div className="rounded-[1.75rem] border border-brand-primary/10 bg-white p-5 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
         <div className="flex items-center justify-between gap-4">
-          <div className="h-10 w-56 animate-pulse rounded-xl bg-[#d9dee7]" />
-          <div className="h-8 w-28 animate-pulse rounded-2xl bg-[#d9dee7]" />
+          <div className="skeleton-shimmer h-10 w-56 rounded-sm" />
+          <span className="rounded-full bg-[#edf3ff] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-[#315da6]">
+            Hoy
+          </span>
         </div>
 
         <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-[#d9e1ec]">
-          <div className="grid grid-cols-5 gap-4 bg-[#f7f9fc] px-6 py-4">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <div
-                key={index}
-                className={`h-4 animate-pulse rounded-md bg-[#dbe2eb] ${
-                  index === 0 ? "w-10" : index === 1 ? "w-28" : "w-20"
-                }`}
-              />
-            ))}
+          <div className="grid grid-cols-5 gap-4 bg-[#f7f9fc] px-6 py-4 text-left text-xs uppercase tracking-[0.22em] text-[#6c7f99]">
+            <div>ID</div>
+            <div>Categoría</div>
+            <div>Gasto</div>
+            <div>Revenue</div>
+            <div>Resultado</div>
           </div>
 
           <div className="divide-y divide-[#eef3f8] bg-white">
-            {Array.from({ length: 5 }).map((_, rowIndex) => (
-              <div key={rowIndex} className="grid grid-cols-5 gap-4 px-6 py-5">
-                <div className="h-4 w-16 animate-pulse rounded-md bg-[#dbe2eb]" />
-                <div className={`h-4 animate-pulse rounded-md bg-[#dbe2eb] ${rowIndex % 2 === 0 ? "w-32" : "w-28"}`} />
-                <div className="h-4 w-20 animate-pulse rounded-md bg-[#dbe2eb]" />
-                <div className="h-4 w-24 animate-pulse rounded-md bg-[#dbe2eb]" />
-                <div className="h-4 w-24 animate-pulse rounded-md bg-[#dbe2eb]" />
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="px-4 py-3">
+                <div className="skeleton-shimmer h-7 rounded-sm" />
               </div>
             ))}
           </div>

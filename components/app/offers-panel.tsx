@@ -192,6 +192,54 @@ function RankingCard({
   );
 }
 
+function RankingCardSkeleton() {
+  return (
+    <article className="rounded-[1.75rem] border border-brand-primary/10 bg-white p-4 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
+      <div className="flex items-center justify-between gap-4">
+        <div className="skeleton-shimmer h-7 w-40 shrink-0 rounded-[2px]" />
+        <div className="skeleton-shimmer h-8 w-[4.8rem] shrink-0 rounded-[2px]" />
+      </div>
+
+      <div className="mt-4 space-y-3">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="skeleton-shimmer h-[3rem] rounded-[0.5rem]" />
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function OffersTableSkeleton() {
+  return (
+    <div className="rounded-[1.75rem] border border-brand-primary/10 bg-white p-5 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
+      <div className="flex items-center justify-between gap-4">
+        <h3 className="text-2xl font-bold text-brand-primary">Tabla de ofertas</h3>
+        <span className="rounded-full bg-[#edf3ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#315da6]">
+          Hoy
+        </span>
+      </div>
+
+      <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-[#d9e1ec]">
+        <div className="grid grid-cols-5 gap-4 bg-[#f7f9fc] px-6 py-4 text-left text-xs uppercase tracking-[0.22em] text-[#6c7f99]">
+          <div>ID</div>
+          <div>Categoría</div>
+          <div>Gasto</div>
+          <div>Revenue</div>
+          <div>Resultado</div>
+        </div>
+
+        <div className="divide-y divide-[#eef3f8] bg-white">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="px-4 py-3">
+              <div className="skeleton-shimmer h-7 rounded-sm" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function OffersPanel() {
   const rowsPerPage = 10;
   const { session } = useAppShell();
@@ -596,27 +644,16 @@ export function OffersPanel() {
       {isLoading ? (
         <div className="space-y-6">
           <div className="grid gap-4 xl:grid-cols-2">
-            {Array.from({ length: 2 }).map((_, index) => (
-              <div
-                key={index}
-                className="h-72 animate-pulse rounded-[1.5rem] bg-white shadow-[0_16px_44px_rgba(7,19,37,0.05)]"
-              />
-            ))}
+            <RankingCardSkeleton />
+            <RankingCardSkeleton />
           </div>
-          <div className="rounded-[1.5rem] bg-white p-5 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
-            <div className="h-10 w-52 animate-pulse rounded-xl bg-[#e8eef6]" />
-            <div className="mt-6 space-y-3">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="h-12 animate-pulse rounded-xl bg-[#f4f7fb]" />
-              ))}
-            </div>
-          </div>
+          <OffersTableSkeleton />
         </div>
       ) : (
         <>
           <div className="grid gap-4 xl:grid-cols-2">
-            <RankingCard title="Top 5 best offers" rows={bestRows} tone="best" />
-            <RankingCard title="Top 5 worst offers" rows={worstRows} tone="worst" />
+            <RankingCard title="Top 5 mejores ofertas" rows={bestRows} tone="best" />
+            <RankingCard title="Top 5 peores ofertas" rows={worstRows} tone="worst" />
           </div>
 
           <div className="rounded-[1.5rem] border border-brand-primary/10 bg-white p-5 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
