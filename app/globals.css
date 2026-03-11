@@ -2,25 +2,57 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #071325;
+  --brand-primary: #071325;
+  --brand-secondary: #d10754;
+  --brand-support: #364a6f;
+  --surface-muted: #d0d3d8;
+  --surface-tint: #f6cddd;
+  --font-logo: "Comfortaa", "Trebuchet MS", sans-serif;
+  --font-heading: "Poppins", "Segoe UI", sans-serif;
+  --font-body: "Lato", "Segoe UI", sans-serif;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-support: var(--brand-support);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-tint: var(--surface-tint);
+  --font-sans: var(--font-body);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background:
+    radial-gradient(circle at top, rgba(209, 7, 84, 0.09), transparent 32%),
+    linear-gradient(180deg, #ffffff 0%, #f8f9fb 100%);
 }
 
 body {
+  min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading), sans-serif;
+}
+
+.font-logo {
+  font-family: var(--font-logo), sans-serif;
+}
+
+.auth-grid {
+  background-image:
+    linear-gradient(rgba(54, 74, 111, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(54, 74, 111, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
