@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient, hasSupabaseConfig } from "@/lib/supabase/client";
 
 type AuthMode = "login" | "signup";
@@ -55,6 +56,13 @@ function translateSupabaseError(message: string) {
   return "No se pudo completar la operacion. Revisa los datos e intentalo otra vez.";
 }
 
+function isEmailOtpType(value: string | null): value is EmailOtpType {
+  return Boolean(
+    value &&
+      ["signup", "invite", "magiclink", "recovery", "email_change", "email"].includes(value),
+  );
+}
+
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const copy = getAuthCopy(mode);
@@ -76,25 +84,105 @@ export function AuthForm({ mode }: AuthFormProps) {
       return;
     }
 
+    const supabaseClient = supabase;
     let active = true;
+    let unsubscribe = () => {};
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (active && data.session) {
-        router.replace("/workspace");
-      }
-    });
+    async function handleEmailConfirmationCallback() {
+      const url = new URL(window.location.href);
+      const searchParams = url.searchParams;
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        router.replace("/workspace");
+      const authCode = searchParams.get("code");
+      const tokenHash = searchParams.get("token_hash");
+      const otpType = searchParams.get("type");
+      const redirectError = searchParams.get("error_description") || hashParams.get("error_description");
+
+      if (redirectError) {
+        setError(decodeURIComponent(redirectError));
+        window.history.replaceState(window.history.state, "", "/login");
+        return;
       }
+
+      if (authCode) {
+        const { data, error: exchangeError } = await supabaseClient.auth.exchangeCodeForSession(authCode);
+
+        if (exchangeError) {
+          setError(translateSupabaseError(exchangeError.message));
+        } else if (data.session) {
+          await supabaseClient.auth.signOut();
+          setMessage("Cuenta verificada correctamente. Ya puedes iniciar sesion.");
+        }
+
+        window.history.replaceState(window.history.state, "", "/login");
+        return;
+      }
+
+      if (tokenHash && isEmailOtpType(otpType)) {
+        const { data, error: verifyError } = await supabaseClient.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: otpType,
+        });
+
+        if (verifyError) {
+          setError(translateSupabaseError(verifyError.message));
+        } else if (data.session || otpType === "signup" || otpType === "email") {
+          await supabaseClient.auth.signOut();
+          setMessage("Cuenta verificada correctamente. Ya puedes iniciar sesion.");
+        }
+
+        window.history.replaceState(window.history.state, "", "/login");
+        return;
+      }
+
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+      const hashType = hashParams.get("type");
+
+      if (accessToken && refreshToken) {
+        const { error: sessionError } = await supabaseClient.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+
+        if (sessionError) {
+          setError(translateSupabaseError(sessionError.message));
+        } else if (hashType === "signup" || hashType === "email") {
+          await supabaseClient.auth.signOut();
+          setMessage("Cuenta verificada correctamente. Ya puedes iniciar sesion.");
+        }
+
+        window.history.replaceState(window.history.state, "", "/login");
+      }
+    }
+
+    handleEmailConfirmationCallback().then(() => {
+      if (!active) {
+        return;
+      }
+
+      supabaseClient.auth.getSession().then(({ data }) => {
+        if (active && data.session) {
+          router.replace("/workspace");
+        }
+      });
+
+      const {
+        data: { subscription },
+      } = supabaseClient.auth.onAuthStateChange((_event, session) => {
+        if (active && session) {
+          router.replace("/workspace");
+        }
+      });
+
+      unsubscribe = () => {
+        subscription.unsubscribe();
+      };
     });
 
     return () => {
       active = false;
-      subscription.unsubscribe();
+      unsubscribe();
     };
   }, [isConfigured, mode, router]);
 
@@ -104,7 +192,9 @@ export function AuthForm({ mode }: AuthFormProps) {
     setMessage("");
 
     if (!isConfigured) {
-      setError("Faltan las variables NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.");
+      setError(
+        "Faltan las variables NEXT_PUBLIC_SUPABASE_URL y una clave publica de Supabase.",
+      );
       return;
     }
 
