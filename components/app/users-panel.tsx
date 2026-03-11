@@ -77,7 +77,13 @@ export function UsersPanel() {
         </span>
       </div>
 
-      {loading ? <p className="mt-6 text-[#4b6283]">Cargando usuarios...</p> : null}
+      {loading ? (
+        <div className="mt-6 space-y-3">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="h-14 animate-pulse rounded-[1rem] bg-[#f4f7fb]" />
+          ))}
+        </div>
+      ) : null}
       {error ? <p className="mt-6 text-brand-secondary">{error}</p> : null}
 
       {!loading && !error ? (

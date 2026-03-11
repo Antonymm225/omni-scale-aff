@@ -159,9 +159,9 @@ function RankingCard({
       : "bg-[#fde9ef] text-[#b4235f]";
 
   return (
-    <article className="rounded-[1.5rem] border border-brand-primary/10 bg-white p-5 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
+    <article className="rounded-[1.25rem] border border-brand-primary/10 bg-white p-4 shadow-[0_12px_32px_rgba(7,19,37,0.05)]">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-xl font-bold text-brand-primary">{title}</h3>
+        <h3 className="text-lg font-bold text-brand-primary">{title}</h3>
         <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${accentClass}`}>
           Top 5
         </span>
@@ -170,17 +170,17 @@ function RankingCard({
       {rows.length === 0 ? (
         <p className="mt-5 text-sm text-[#5d728e]">Aún no hay datos suficientes para este período.</p>
       ) : (
-        <div className="mt-5 space-y-3">
+        <div className="mt-4 space-y-2">
           {rows.map((row, index) => (
-            <div key={`${title}-${row.id}`} className="flex items-center justify-between rounded-[1rem] bg-[#f7f9fc] px-4 py-3">
-              <div className="min-w-0">
-                <p className="text-xs uppercase tracking-[0.2em] text-[#7c8ea6]">#{index + 1}</p>
-                <p className="truncate text-sm font-semibold text-brand-primary">{row.name}</p>
-                <p className="truncate text-xs text-[#5d728e]">{row.category}</p>
+            <div key={`${title}-${row.id}`} className="flex items-start justify-between rounded-[0.9rem] bg-[#f7f9fc] px-3 py-1.5">
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-[11px] uppercase leading-none tracking-[0.18em] text-[#7c8ea6]">#{index + 1}</p>
+                <p className="truncate text-[15px] font-semibold leading-none text-brand-primary">{row.name}</p>
+                <p className="truncate text-xs leading-none text-[#5d728e]">{row.category}</p>
               </div>
-              <div className="text-right">
-                <p className="text-sm font-semibold text-brand-primary">{formatUsd(row.result)}</p>
-                <p className="text-xs text-[#5d728e]">
+              <div className="space-y-0.5 text-right">
+                <p className="text-[15px] font-semibold leading-none text-brand-primary">{formatUsd(row.result)}</p>
+                <p className="text-[11px] leading-none text-[#5d728e]">
                   Rev {formatUsd(row.revenue)} / Gasto {formatUsd(row.spend)}
                 </p>
               </div>
@@ -193,8 +193,10 @@ function RankingCard({
 }
 
 export function OffersPanel() {
+  const rowsPerPage = 10;
   const { session } = useAppShell();
   const [period, setPeriod] = useState<PeriodKey>("today");
+  const [currentPage, setCurrentPage] = useState(1);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [metrics, setMetrics] = useState<OfferMetric[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -294,13 +296,19 @@ export function OffersPanel() {
     [summaryRows],
   );
 
-  const tableRows = useMemo(
-    () =>
-      [...summaryRows]
-        .sort((a, b) => b.id - a.id)
-        .slice(0, 10),
+  const sortedTableRows = useMemo(
+    () => [...summaryRows].sort((a, b) => b.id - a.id),
     [summaryRows],
   );
+
+  const totalRows = sortedTableRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  const tableRows = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * rowsPerPage;
+    return sortedTableRows.slice(startIndex, startIndex + rowsPerPage);
+  }, [rowsPerPage, safeCurrentPage, sortedTableRows]);
 
   function updateFormField(field: keyof typeof form, value: string) {
     setForm((current) => ({
@@ -400,6 +408,7 @@ export function OffersPanel() {
     });
     setShowForm(false);
     setSuccess("Oferta creada correctamente.");
+    setCurrentPage(1);
     setIsSubmitting(false);
   }
 
@@ -417,6 +426,7 @@ export function OffersPanel() {
                 onClick={() => {
                   setIsLoading(true);
                   setError("");
+                  setCurrentPage(1);
                   setPeriod(option.key);
                 }}
                 className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
@@ -487,7 +497,7 @@ export function OffersPanel() {
                   inputMode="numeric"
                   value={form.offerNumber}
                   onChange={(event) => updateFormField("offerNumber", event.target.value)}
-                  placeholder="Ej. 1001"
+                  placeholder="1001"
                   className="w-full rounded-[12px] border border-[#cbd5e1] bg-white px-4 py-3 text-sm outline-none focus:border-[#1e3a8a]"
                   pattern="[0-9]+"
                   required
@@ -549,7 +559,6 @@ export function OffersPanel() {
                     required
                   />
                 </div>
-                <p className="text-xs text-[#6c7f99]">USD por defecto. Hasta 3 decimales. Ejemplo: $9.360</p>
               </label>
 
               <SelectOrCustomField
@@ -584,18 +593,36 @@ export function OffersPanel() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <RankingCard title="Top 5 best offers" rows={bestRows} tone="best" />
-        <RankingCard title="Top 5 worst offers" rows={worstRows} tone="worst" />
-      </div>
+      {isLoading ? (
+        <div className="space-y-6">
+          <div className="grid gap-4 xl:grid-cols-2">
+            {Array.from({ length: 2 }).map((_, index) => (
+              <div
+                key={index}
+                className="h-72 animate-pulse rounded-[1.5rem] bg-white shadow-[0_16px_44px_rgba(7,19,37,0.05)]"
+              />
+            ))}
+          </div>
+          <div className="rounded-[1.5rem] bg-white p-5 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
+            <div className="h-10 w-52 animate-pulse rounded-xl bg-[#e8eef6]" />
+            <div className="mt-6 space-y-3">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="h-12 animate-pulse rounded-xl bg-[#f4f7fb]" />
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <RankingCard title="Top 5 best offers" rows={bestRows} tone="best" />
+            <RankingCard title="Top 5 worst offers" rows={worstRows} tone="worst" />
+          </div>
 
-      <div className="rounded-[1.5rem] border border-brand-primary/10 bg-white p-5 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
+          <div className="rounded-[1.5rem] border border-brand-primary/10 bg-white p-5 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
         <div className="flex items-center justify-between gap-4">
           <div>
             <h3 className="text-2xl font-bold text-brand-primary">Tabla de ofertas</h3>
-            <p className="mt-2 text-sm text-[#5d728e]">
-              Resumen de hasta 10 filas según el período seleccionado.
-            </p>
           </div>
           <span className="rounded-full bg-[#edf3ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#315da6]">
             {periodOptions.find((option) => option.key === period)?.label}
@@ -634,7 +661,52 @@ export function OffersPanel() {
             </table>
           </div>
         )}
-      </div>
+
+        {!isLoading && totalRows > 0 ? (
+          <div className="mt-4 flex items-center justify-end gap-3 text-sm text-[#304866]">
+            <span>{totalRows} Total</span>
+            <button
+              type="button"
+              onClick={() => setCurrentPage(1)}
+              disabled={safeCurrentPage === 1}
+              className="px-1 text-[#6c7f99] transition hover:text-brand-primary disabled:cursor-not-allowed disabled:opacity-35"
+              aria-label="Primera página"
+            >
+              |&lt;
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              disabled={safeCurrentPage === 1}
+              className="px-1 text-[#6c7f99] transition hover:text-brand-primary disabled:cursor-not-allowed disabled:opacity-35"
+              aria-label="Página anterior"
+            >
+              &lt;
+            </button>
+            <span className="min-w-4 text-center font-semibold text-brand-primary">{safeCurrentPage}</span>
+            <button
+              type="button"
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+              disabled={safeCurrentPage === totalPages}
+              className="px-1 text-[#6c7f99] transition hover:text-brand-primary disabled:cursor-not-allowed disabled:opacity-35"
+              aria-label="Página siguiente"
+            >
+              &gt;
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={safeCurrentPage === totalPages}
+              className="px-1 text-[#6c7f99] transition hover:text-brand-primary disabled:cursor-not-allowed disabled:opacity-35"
+              aria-label="Última página"
+            >
+              &gt;|
+            </button>
+          </div>
+        ) : null}
+          </div>
+        </>
+      )}
     </div>
   );
 }

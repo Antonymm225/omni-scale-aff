@@ -1,9 +1,9 @@
-import { AppShell } from "@/components/app/app-shell";
+import { AppPage } from "@/components/app/app-page";
 import { SectionPlaceholder } from "@/components/app/section-placeholder";
 
 export default function FacebookPage() {
   return (
-    <AppShell
+    <AppPage
       title="Facebook Ads"
       description="Espacio preparado para la conexión de cuentas, campañas y lectura operativa desde Meta."
     >
@@ -11,6 +11,6 @@ export default function FacebookPage() {
         title="Módulo de Facebook Ads"
         description="Aquí conectaremos luego métricas, cuentas publicitarias y sincronizaciones enfocadas en la operación de owner y media buyers."
       />
-    </AppShell>
+    </AppPage>
   );
 }

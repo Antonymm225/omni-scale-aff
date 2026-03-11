@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AppRouteShell } from "@/components/app/app-route-shell";
 
 export const metadata: Metadata = {
   title: "OmniScale",
@@ -13,7 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        <AppRouteShell>{children}</AppRouteShell>
+      </body>
     </html>
   );
 }

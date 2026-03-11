@@ -36,8 +36,6 @@ type AppShellContextValue = {
 const AppShellContext = createContext<AppShellContextValue | null>(null);
 
 type AppShellProps = {
-  title: string;
-  description: string;
   children: ReactNode;
 };
 
@@ -49,7 +47,7 @@ const navigationItems = [
   { href: "/users", label: "Usuarios", icon: "users" },
 ] as const;
 
-function iconFor(name: (typeof navigationItems)[number]["icon"] | "account" | "logout") {
+function iconFor(name: (typeof navigationItems)[number]["icon"] | "logout") {
   const base = "h-5 w-5";
 
   switch (name) {
@@ -74,25 +72,30 @@ function iconFor(name: (typeof navigationItems)[number]["icon"] | "account" | "l
     case "tiktok":
       return (
         <svg viewBox="0 0 24 24" fill="none" className={base} stroke="currentColor" strokeWidth="1.8">
-          <path d="M14 4c.4 1.7 1.6 3.2 3.5 4v2.5c-1.3 0-2.4-.3-3.5-1V15a5 5 0 1 1-5-5" strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d="M14 4c.4 1.7 1.6 3.2 3.5 4v2.5c-1.3 0-2.4-.3-3.5-1V15a5 5 0 1 1-5-5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
       );
     case "users":
       return (
         <svg viewBox="0 0 24 24" fill="none" className={base} stroke="currentColor" strokeWidth="1.8">
-          <path d="M16 19a4 4 0 0 0-8 0M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19 19a3 3 0 0 0-3-3M17.5 12a2.5 2.5 0 1 0 0-5" strokeLinecap="round" />
-        </svg>
-      );
-    case "account":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" className={base} stroke="currentColor" strokeWidth="1.8">
-          <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM5 20a7 7 0 0 1 14 0" strokeLinecap="round" />
+          <path
+            d="M16 19a4 4 0 0 0-8 0M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19 19a3 3 0 0 0-3-3M17.5 12a2.5 2.5 0 1 0 0-5"
+            strokeLinecap="round"
+          />
         </svg>
       );
     case "logout":
       return (
         <svg viewBox="0 0 24 24" fill="none" className={base} stroke="currentColor" strokeWidth="1.8">
-          <path d="M15 7l5 5-5 5M20 12H9M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6" strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d="M15 7l5 5-5 5M20 12H9M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
       );
   }
@@ -125,6 +128,46 @@ function getDisplayName(profile: AppProfile | null, session: Session | null) {
   return session?.user.email?.split("@")[0] ?? "Usuario";
 }
 
+function AppShellSkeleton() {
+  return (
+    <main className="min-h-screen bg-[#eef3f8] text-brand-primary">
+      <aside className="hidden border-r border-[#d9e1ec] bg-white lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-[284px]">
+        <div className="flex h-full flex-col">
+          <div className="border-b border-[#d9e1ec] px-6 py-6">
+            <div className="h-8 w-32 animate-pulse rounded-lg bg-[#e6edf5]" />
+          </div>
+          <div className="flex-1 space-y-2 px-3 py-5">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="h-12 animate-pulse rounded-xl bg-[#eef3f8]" />
+            ))}
+          </div>
+          <div className="border-t border-[#d9e1ec] p-3">
+            <div className="h-[74px] animate-pulse rounded-2xl bg-[#eef3f8]" />
+          </div>
+        </div>
+      </aside>
+
+      <section className="min-h-screen px-4 py-6 sm:px-6 lg:ml-[284px] lg:px-10">
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <div className="h-12 w-56 animate-pulse rounded-xl bg-[#dfe7f1]" />
+            <div className="h-6 w-[30rem] max-w-full animate-pulse rounded-xl bg-[#e8eef6]" />
+          </div>
+          <div className="grid gap-4 xl:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div
+                key={index}
+                className="h-40 animate-pulse rounded-[1.5rem] bg-white shadow-[0_16px_48px_rgba(7,19,37,0.04)]"
+              />
+            ))}
+          </div>
+          <div className="h-72 animate-pulse rounded-[1.75rem] bg-white shadow-[0_16px_48px_rgba(7,19,37,0.04)]" />
+        </div>
+      </section>
+    </main>
+  );
+}
+
 export function useAppShell() {
   const context = useContext(AppShellContext);
 
@@ -135,7 +178,7 @@ export function useAppShell() {
   return context;
 }
 
-export function AppShell({ title, description, children }: AppShellProps) {
+export function AppShell({ children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const isConfigured = hasSupabaseConfig();
@@ -227,7 +270,7 @@ export function AppShell({ title, description, children }: AppShellProps) {
       }
 
       setSession(nextSession);
-      refreshProfile();
+      void refreshProfile();
     });
 
     return () => {
@@ -273,13 +316,7 @@ export function AppShell({ title, description, children }: AppShellProps) {
   }
 
   if (isLoading || !session || !contextValue) {
-    return (
-      <main className="min-h-screen bg-[#f4f7fb] p-6">
-        <div className="mx-auto max-w-4xl rounded-[1.8rem] border border-brand-primary/10 bg-white p-8 shadow-[0_20px_60px_rgba(7,19,37,0.08)]">
-          <p className="text-brand-support">Cargando sesión...</p>
-        </div>
-      </main>
-    );
+    return <AppShellSkeleton />;
   }
 
   const displayName = getDisplayName(profile, session);
@@ -288,72 +325,60 @@ export function AppShell({ title, description, children }: AppShellProps) {
   return (
     <AppShellContext.Provider value={contextValue}>
       <main className="min-h-screen bg-[#eef3f8] text-brand-primary">
-        <div className="flex min-h-screen flex-col lg:flex-row">
-          <aside className="w-full border-b border-[#d9e1ec] bg-white lg:sticky lg:top-0 lg:h-screen lg:w-[284px] lg:border-r lg:border-b-0">
-            <div className="flex h-full flex-col">
-              <div className="border-b border-[#d9e1ec] px-6 py-6">
-                <Link href="/dashboard" className="text-2xl font-bold tracking-tight text-brand-primary">
-                  OMNI Scale
-                </Link>
+        <aside className="w-full border-b border-[#d9e1ec] bg-white lg:fixed lg:inset-y-0 lg:left-0 lg:w-[284px] lg:border-r lg:border-b-0">
+          <div className="flex h-full flex-col">
+            <div className="border-b border-[#d9e1ec] px-6 py-6">
+              <Link href="/dashboard" className="text-2xl font-bold tracking-tight text-brand-primary">
+                OMNI Scale
+              </Link>
+            </div>
+
+            <nav className="flex-1 px-3 py-5">
+              <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-1">
+                {navigationItems.map((item) => {
+                  const isActive = pathname === item.href;
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${
+                        isActive ? "bg-[#ebe4ff] text-[#5b21b6]" : "text-[#23395d] hover:bg-[#f4f7fb]"
+                      }`}
+                    >
+                      <span className={isActive ? "text-[#7c3aed]" : "text-[#5d728e]"}>{iconFor(item.icon)}</span>
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
               </div>
+            </nav>
 
-              <nav className="flex-1 px-3 py-5">
-                <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-1">
-                  {navigationItems.map((item) => {
-                    const isActive = pathname === item.href;
-
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${
-                          isActive
-                            ? "bg-[#ebe4ff] text-[#5b21b6]"
-                            : "text-[#23395d] hover:bg-[#f4f7fb]"
-                        }`}
-                      >
-                        <span className={isActive ? "text-[#7c3aed]" : "text-[#5d728e]"}>
-                          {iconFor(item.icon)}
-                        </span>
-                        <span>{item.label}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </nav>
-
-              <div className="border-t border-[#d9e1ec] p-3">
-                <div className="flex items-center gap-3 rounded-2xl bg-[#f7f9fc] p-3">
-                  <Link href="/my-account" className="flex min-w-0 flex-1 items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-primary text-sm font-bold text-white">
-                      {getInitials(displayName)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-brand-primary">{displayName}</p>
-                      <p className="truncate text-xs text-[#5d728e]">{roleLabel}</p>
-                    </div>
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={handleSignOut}
-                    className="rounded-xl p-2 text-[#5d728e] transition hover:bg-white hover:text-brand-primary"
-                    aria-label="Cerrar sesión"
-                  >
-                    {iconFor("logout")}
-                  </button>
-                </div>
+            <div className="border-t border-[#d9e1ec] p-3">
+              <div className="flex items-center gap-3 rounded-2xl bg-[#f7f9fc] p-3">
+                <Link href="/my-account" className="flex min-w-0 flex-1 items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-primary text-sm font-bold text-white">
+                    {getInitials(displayName)}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-brand-primary">{displayName}</p>
+                    <p className="truncate text-xs text-[#5d728e]">{roleLabel}</p>
+                  </div>
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="rounded-xl p-2 text-[#5d728e] transition hover:bg-white hover:text-brand-primary"
+                  aria-label="Cerrar sesión"
+                >
+                  {iconFor("logout")}
+                </button>
               </div>
             </div>
-          </aside>
+          </div>
+        </aside>
 
-          <section className="flex-1 px-4 py-6 sm:px-6 lg:px-10">
-            <header className="mb-8">
-              <h1 className="text-4xl font-bold tracking-tight text-brand-primary">{title}</h1>
-              <p className="mt-3 max-w-3xl text-lg leading-8 text-[#4b6283]">{description}</p>
-            </header>
-            {children}
-          </section>
-        </div>
+        <section className="min-h-screen px-4 py-6 sm:px-6 lg:ml-[284px] lg:px-10">{children}</section>
       </main>
     </AppShellContext.Provider>
   );
