@@ -1,16 +1,13 @@
 import { AppShell } from "@/components/app/app-shell";
-import { SectionPlaceholder } from "@/components/app/section-placeholder";
+import { OffersPanel } from "@/components/app/offers-panel";
 
 export default function OffersPage() {
   return (
     <AppShell
       title="Ofertas"
-      description="Aquí construiremos el módulo para concentrar cada offer, su estado, notas operativas y puntos de decisión."
+      description="Gestiona tus ofertas, crea nuevas entradas desde la interfaz y revisa rápidamente cuáles son las mejores y peores según el período seleccionado."
     >
-      <SectionPlaceholder
-        title="Módulo de ofertas"
-        description="La siguiente iteración puede conectar aquí el catálogo de offers, payout, fuente y estado para que owner y media buyers trabajen sobre una misma referencia."
-      />
+      <OffersPanel />
     </AppShell>
   );
 }
