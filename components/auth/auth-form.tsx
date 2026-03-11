@@ -17,18 +17,20 @@ function getAuthCopy(mode: AuthMode) {
     return {
       title: "Iniciar sesión",
       button: "Continuar con email",
-      alternateCta: "Crear cuenta",
-      alternateHref: "/signup",
-      alternateText: "Olvidé mi contraseña",
+      secondaryHref: "/signup",
+      secondaryLabel: "Crear cuenta",
+      helperLabel: "Olvidé mi contraseña",
+      helperHref: "/forgot-password",
     };
   }
 
   return {
     title: "Crear cuenta",
     button: "Crear cuenta con email",
-    alternateCta: "Iniciar sesión",
-    alternateHref: "/login",
-    alternateText: "¿Ya tienes cuenta?",
+    secondaryHref: "/login",
+    secondaryLabel: "Iniciar sesión",
+    helperLabel: "¿Ya tienes cuenta?",
+    helperHref: "/login",
   };
 }
 
@@ -51,10 +53,6 @@ function translateSupabaseError(message: string) {
     return "Ese correo ya está registrado. Prueba iniciar sesión.";
   }
 
-  if (lowered.includes("same password")) {
-    return "Elige una contraseña distinta a la anterior.";
-  }
-
   return "No se pudo completar la operación. Revisa los datos e inténtalo otra vez.";
 }
 
@@ -75,7 +73,6 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [isPending, setIsPending] = useState(false);
-  const [isResetPending, setIsResetPending] = useState(false);
 
   useEffect(() => {
     if (mode !== "login" || !isConfigured) {
@@ -269,53 +266,6 @@ export function AuthForm({ mode }: AuthFormProps) {
     }
   }
 
-  async function handleForgotPassword() {
-    setError("");
-    setMessage("");
-
-    if (!email.trim()) {
-      setError("Escribe tu correo electrónico para enviarte el enlace de recuperación.");
-      return;
-    }
-
-    if (!isConfigured) {
-      setError(
-        "Faltan las variables NEXT_PUBLIC_SUPABASE_URL y una clave pública de Supabase.",
-      );
-      return;
-    }
-
-    const supabase = getSupabaseBrowserClient();
-
-    if (!supabase) {
-      setError("No se pudo inicializar Supabase.");
-      return;
-    }
-
-    setIsResetPending(true);
-
-    try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-
-      if (resetError) {
-        throw resetError;
-      }
-
-      setMessage("Te enviamos un correo para restablecer tu contraseña.");
-    } catch (resetAuthError) {
-      const friendlyMessage =
-        resetAuthError instanceof Error
-          ? translateSupabaseError(resetAuthError.message)
-          : "No se pudo enviar el correo de recuperación.";
-
-      setError(friendlyMessage);
-    } finally {
-      setIsResetPending(false);
-    }
-  }
-
   return (
     <div className="w-full text-brand-primary">
       <div className="mb-5">
@@ -376,20 +326,14 @@ export function AuthForm({ mode }: AuthFormProps) {
       </form>
 
       <div className="mt-4 flex items-center justify-between text-[13px]">
-        {mode === "login" ? (
-          <button
-            type="button"
-            onClick={handleForgotPassword}
-            disabled={isResetPending || !isConfigured}
-            className="text-[#1e3a8a] transition hover:text-[#0f172a] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isResetPending ? "Enviando..." : copy.alternateText}
-          </button>
-        ) : (
-          <span className="text-[#64748b]">{copy.alternateText}</span>
-        )}
-        <Link href={copy.alternateHref} className="font-medium text-[#1e3a8a] transition hover:text-[#0f172a]">
-          {copy.alternateCta}
+        <Link href={copy.helperHref} className="text-[#1e3a8a] transition hover:text-[#0f172a]">
+          {copy.helperLabel}
+        </Link>
+        <Link
+          href={copy.secondaryHref}
+          className="font-medium text-[#1e3a8a] transition hover:text-[#0f172a]"
+        >
+          {copy.secondaryLabel}
         </Link>
       </div>
 
