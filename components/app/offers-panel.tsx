@@ -18,13 +18,14 @@ type Offer = {
   created_at: string;
 };
 
-type OfferMetric = {
-  id: number;
+type SpendMetric = {
   offer_id: number;
-  metric_date: string;
-  spend: number;
-  revenue: number;
-  result: number;
+  amount_usd: number;
+};
+
+type RevenueMetric = {
+  offer_id: number;
+  amount: number;
 };
 
 type OfferRow = {
@@ -246,7 +247,9 @@ export function OffersPanel() {
   const [period, setPeriod] = useState<PeriodKey>("today");
   const [currentPage, setCurrentPage] = useState(1);
   const [offers, setOffers] = useState<Offer[]>([]);
-  const [metrics, setMetrics] = useState<OfferMetric[]>([]);
+  const [facebookSpend, setFacebookSpend] = useState<SpendMetric[]>([]);
+  const [tiktokSpend, setTiktokSpend] = useState<SpendMetric[]>([]);
+  const [revenueMetrics, setRevenueMetrics] = useState<RevenueMetric[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -278,20 +281,32 @@ export function OffersPanel() {
         .select("id,offer_number,owner_user_id,name,category,offer_type,language,payout,payout_currency,is_active,created_at")
         .order("id", { ascending: false }),
       supabase
-        .from("offer_daily_metrics")
-        .select("id,offer_id,metric_date,spend,revenue,result")
-        .gte("metric_date", start)
-        .lte("metric_date", end),
-    ]).then(([offersResponse, metricsResponse]) => {
+        .from("facebook_offer_spend")
+        .select("offer_id,amount_usd")
+        .gte("spend_date", start)
+        .lte("spend_date", end),
+      supabase
+        .from("tiktok_offer_spend")
+        .select("offer_id,amount_usd")
+        .gte("spend_date", start)
+        .lte("spend_date", end),
+      supabase
+        .from("offer_revenue")
+        .select("offer_id,amount")
+        .gte("revenue_date", start)
+        .lte("revenue_date", end),
+    ]).then(([offersResponse, facebookResponse, tiktokResponse, revenueResponse]) => {
       if (!active) {
         return;
       }
 
-      if (offersResponse.error || metricsResponse.error) {
+      if (offersResponse.error || facebookResponse.error || tiktokResponse.error || revenueResponse.error) {
         setError("No se pudieron cargar las ofertas.");
       } else {
         setOffers((offersResponse.data as Offer[]) ?? []);
-        setMetrics((metricsResponse.data as OfferMetric[]) ?? []);
+        setFacebookSpend((facebookResponse.data as SpendMetric[]) ?? []);
+        setTiktokSpend((tiktokResponse.data as SpendMetric[]) ?? []);
+        setRevenueMetrics((revenueResponse.data as RevenueMetric[]) ?? []);
       }
 
       setIsLoading(false);
@@ -303,30 +318,37 @@ export function OffersPanel() {
   }, [period]);
 
   const summaryRows = useMemo<OfferRow[]>(() => {
-    const metricsByOffer = new Map<number, { spend: number; revenue: number; result: number }>();
+    const spendByOffer = new Map<number, number>();
+    const revenueByOffer = new Map<number, number>();
 
-    for (const metric of metrics) {
-      const current = metricsByOffer.get(metric.offer_id) ?? { spend: 0, revenue: 0, result: 0 };
-      current.spend += Number(metric.spend ?? 0);
-      current.revenue += Number(metric.revenue ?? 0);
-      current.result += Number(metric.result ?? Number(metric.revenue ?? 0) - Number(metric.spend ?? 0));
-      metricsByOffer.set(metric.offer_id, current);
+    for (const metric of facebookSpend) {
+      spendByOffer.set(metric.offer_id, (spendByOffer.get(metric.offer_id) ?? 0) + Number(metric.amount_usd ?? 0));
+    }
+
+    for (const metric of tiktokSpend) {
+      spendByOffer.set(metric.offer_id, (spendByOffer.get(metric.offer_id) ?? 0) + Number(metric.amount_usd ?? 0));
+    }
+
+    for (const metric of revenueMetrics) {
+      revenueByOffer.set(metric.offer_id, (revenueByOffer.get(metric.offer_id) ?? 0) + Number(metric.amount ?? 0));
     }
 
     return offers.map((offer) => {
-      const totals = metricsByOffer.get(offer.id) ?? { spend: 0, revenue: 0, result: 0 };
+      const spend = spendByOffer.get(offer.id) ?? 0;
+      const revenue = revenueByOffer.get(offer.id) ?? 0;
+      const result = revenue - spend;
 
       return {
         id: offer.id,
         offerNumber: offer.offer_number,
         name: offer.name,
         category: offer.category,
-        spend: Number(totals.spend.toFixed(2)),
-        revenue: Number(totals.revenue.toFixed(2)),
-        result: Number(totals.result.toFixed(2)),
+        spend: Number(spend.toFixed(2)),
+        revenue: Number(revenue.toFixed(2)),
+        result: Number(result.toFixed(2)),
       };
     });
-  }, [metrics, offers]);
+  }, [facebookSpend, offers, revenueMetrics, tiktokSpend]);
 
   const bestRows = useMemo(
     () =>
