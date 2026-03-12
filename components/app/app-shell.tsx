@@ -44,6 +44,7 @@ const navigationItems = [
   { href: "/offers", label: "Ofertas", icon: "offers" },
   { href: "/facebook", label: "Facebook Ads", icon: "facebook" },
   { href: "/tiktok", label: "Tiktok Ads", icon: "tiktok" },
+  { href: "/revenue", label: "Revenue", icon: "revenue" },
   { href: "/users", label: "Usuarios", icon: "users" },
 ] as const;
 
@@ -86,6 +87,12 @@ function iconFor(name: (typeof navigationItems)[number]["icon"] | "logout") {
             d="M16 19a4 4 0 0 0-8 0M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19 19a3 3 0 0 0-3-3M17.5 12a2.5 2.5 0 1 0 0-5"
             strokeLinecap="round"
           />
+        </svg>
+      );
+    case "revenue":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" className={base} stroke="currentColor" strokeWidth="1.8">
+          <path d="M4 16l4-4 3 3 7-7M18 8h-4V4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
     case "logout":

@@ -72,10 +72,10 @@ function getDateRange(period: PeriodKey) {
   };
 }
 
-function formatUsd(value: number) {
+function formatCurrency(value: number, fractionDigits: number) {
   const formatted = new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
   }).format(value);
 
   return `$${formatted}`;
@@ -94,10 +94,14 @@ function RankingSpendCard({
   title,
   rows,
   tone,
+  emptyMessage,
+  formatValue,
 }: {
   title: string;
   rows: RankingRow[];
   tone: "high" | "low";
+  emptyMessage: string;
+  formatValue: (value: number) => string;
 }) {
   const accentClass =
     tone === "high"
@@ -114,7 +118,7 @@ function RankingSpendCard({
       </div>
 
       {rows.length === 0 ? (
-        <p className="mt-5 text-sm text-[#5d728e]">Aún no hay gasto registrado en este período.</p>
+        <p className="mt-5 text-sm text-[#5d728e]">{emptyMessage}</p>
       ) : (
         <div className="mt-4 space-y-2">
           {rows.map((row, index) => (
@@ -126,7 +130,7 @@ function RankingSpendCard({
                 <p className="text-[11px] uppercase tracking-[0.18em] text-[#7c8ea6]">#{index + 1}</p>
                 <p className="truncate text-[15px] font-semibold text-brand-primary">{row.offerName}</p>
               </div>
-              <p className="text-[15px] font-semibold text-brand-primary">{formatUsd(row.amountUsd)}</p>
+              <p className="text-[15px] font-semibold text-brand-primary">{formatValue(row.amountUsd)}</p>
             </div>
           ))}
         </div>
@@ -162,11 +166,19 @@ function SpendMetricCardSkeleton() {
   );
 }
 
-function SpendTableSkeleton({ periodLabel }: { periodLabel: string }) {
+function SpendTableSkeleton({
+  periodLabel,
+  tableTitle,
+  amountLabel,
+}: {
+  periodLabel: string;
+  tableTitle: string;
+  amountLabel: string;
+}) {
   return (
     <div className="rounded-[1.75rem] border border-brand-primary/10 bg-white p-5 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
       <div className="flex items-center justify-between gap-4">
-        <h3 className="text-2xl font-bold text-brand-primary">Tabla de gasto</h3>
+        <h3 className="text-2xl font-bold text-brand-primary">{tableTitle}</h3>
         <span className="rounded-full bg-[#edf3ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#315da6]">
           {periodLabel}
         </span>
@@ -176,7 +188,7 @@ function SpendTableSkeleton({ periodLabel }: { periodLabel: string }) {
         <div className="grid grid-cols-3 gap-4 bg-[#f7f9fc] px-6 py-4 text-left text-xs uppercase tracking-[0.22em] text-[#6c7f99]">
           <div>Oferta</div>
           <div>Fecha</div>
-          <div>Gasto (USD)</div>
+          <div>{amountLabel}</div>
         </div>
 
         <div className="divide-y divide-[#eef3f8] bg-white">
@@ -195,10 +207,11 @@ type SpendModalMode = "update" | null;
 
 type AdSpendPanelProps = {
   sourceLabel: string;
-  tableName: "facebook_offer_spend" | "tiktok_offer_spend";
+  tableName: "facebook_offer_spend" | "tiktok_offer_spend" | "offer_revenue";
+  mode: "spend" | "revenue";
 };
 
-export function AdSpendPanel({ sourceLabel, tableName }: AdSpendPanelProps) {
+export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps) {
   const rowsPerPage = 10;
   const supabase = getSupabaseBrowserClient();
   const [period, setPeriod] = useState<PeriodKey>("today");
@@ -217,6 +230,33 @@ export function AdSpendPanel({ sourceLabel, tableName }: AdSpendPanelProps) {
   });
 
   const periodLabel = periodOptions.find((option) => option.key === period)?.label ?? "Hoy";
+  const fractionDigits = mode === "revenue" ? 3 : 2;
+  const formatValue = (value: number) => formatCurrency(value, fractionDigits);
+  const actionLabel = mode === "revenue" ? "Actualizar revenue" : "Actualizar gasto";
+  const totalTitle = mode === "revenue" ? "Total revenue" : "Gasto total";
+  const totalHelper =
+    mode === "revenue"
+      ? "Revenue total según el rango de fecha seleccionado."
+      : "USD según el rango de fecha seleccionado.";
+  const rankingHighTitle =
+    mode === "revenue" ? "Top 5 ofertas con más revenue" : "Top 5 ofertas con mayor gasto";
+  const rankingLowTitle =
+    mode === "revenue" ? "Top 5 ofertas con menos revenue" : "Top 5 ofertas con menor gasto";
+  const tableTitle = mode === "revenue" ? "Tabla de revenue" : "Tabla de gasto";
+  const amountLabel = mode === "revenue" ? "Revenue" : "Gasto (USD)";
+  const amountFieldLabel = mode === "revenue" ? "Revenue (divisa de la oferta)" : "Nuevo monto (USD)";
+  const emptyPeriodMessage =
+    mode === "revenue" ? "Aún no hay revenue registrado en este período." : "Aún no hay gasto registrado en este período.";
+  const loadLabel = mode === "revenue" ? "revenue" : `gasto de ${sourceLabel}`;
+  const noOffersMessage =
+    mode === "revenue"
+      ? "Primero crea una oferta en el módulo de Ofertas para poder registrar revenue."
+      : `Primero crea una oferta en el módulo de Ofertas para poder registrar gasto de ${sourceLabel}.`;
+  const successMessage = mode === "revenue" ? "Revenue actualizado correctamente." : "Gasto actualizado correctamente.";
+  const modalDescription =
+    mode === "revenue"
+      ? "Actualiza el revenue de una oferta. Si no existe, se crea automáticamente."
+      : "Actualiza el monto de una oferta. Si no existe, se crea automáticamente.";
 
   useEffect(() => {
     if (!supabase) {
@@ -258,7 +298,7 @@ export function AdSpendPanel({ sourceLabel, tableName }: AdSpendPanelProps) {
 
       if (spendResponse.error) {
         setSpendRows([]);
-        setError(`No se pudo cargar el gasto de ${sourceLabel}. Verifica que la tabla y sus políticas ya existan en Supabase.`);
+        setError(`No se pudo cargar el ${loadLabel}. Verifica que la tabla y sus políticas ya existan en Supabase.`);
       } else {
         setSpendRows((spendResponse.data as AdSpendRecord[]) ?? []);
       }
@@ -269,7 +309,7 @@ export function AdSpendPanel({ sourceLabel, tableName }: AdSpendPanelProps) {
     return () => {
       active = false;
     };
-  }, [period, sourceLabel, supabase, tableName]);
+  }, [loadLabel, period, sourceLabel, supabase, tableName]);
 
   const offersById = useMemo(() => {
     return new Map(
@@ -428,7 +468,7 @@ export function AdSpendPanel({ sourceLabel, tableName }: AdSpendPanelProps) {
       amountUsd: "",
     });
     setCurrentPage(1);
-    setSuccess("Gasto actualizado correctamente.");
+    setSuccess(successMessage);
     closeModal();
     setIsSubmitting(false);
   }
@@ -477,14 +517,14 @@ export function AdSpendPanel({ sourceLabel, tableName }: AdSpendPanelProps) {
             disabled={offers.length === 0}
             className="rounded-xl bg-brand-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1e293b] disabled:cursor-not-allowed disabled:opacity-45"
           >
-            Actualizar gasto
+            {actionLabel}
           </button>
         </div>
       </div>
 
       {!isLoading && offers.length === 0 ? (
         <div className="rounded-[1.25rem] border border-[#d9e1ec] bg-white px-5 py-4 text-sm text-[#4b6283]">
-          Primero crea una oferta en el módulo de Ofertas para poder registrar gasto de {sourceLabel}.
+          {noOffersMessage}
         </div>
       ) : null}
 
@@ -515,10 +555,8 @@ export function AdSpendPanel({ sourceLabel, tableName }: AdSpendPanelProps) {
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-2xl font-bold text-brand-primary">Actualizar gasto</h3>
-                <p className="mt-2 text-sm leading-6 text-[#5d728e]">
-                  Actualiza el monto de una oferta. Si no existe, se crea automáticamente.
-                </p>
+                <h3 className="text-2xl font-bold text-brand-primary">{actionLabel}</h3>
+                <p className="mt-2 text-sm leading-6 text-[#5d728e]">{modalDescription}</p>
               </div>
               <button
                 type="button"
@@ -564,7 +602,7 @@ export function AdSpendPanel({ sourceLabel, tableName }: AdSpendPanelProps) {
               </label>
 
               <label className="space-y-2">
-                <span className="text-sm font-semibold text-brand-primary">Nuevo monto (USD)</span>
+                <span className="text-sm font-semibold text-brand-primary">{amountFieldLabel}</span>
                 <div className="flex items-center rounded-[12px] border border-[#cbd5e1] bg-white focus-within:border-[#1e3a8a]">
                   <span className="pl-4 text-sm font-semibold text-brand-primary">$</span>
                   <input
@@ -600,7 +638,7 @@ export function AdSpendPanel({ sourceLabel, tableName }: AdSpendPanelProps) {
                 disabled={isSubmitting}
                 className="rounded-xl bg-brand-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#1e293b] disabled:cursor-not-allowed disabled:opacity-45"
               >
-                {isSubmitting ? "Guardando..." : "Actualizar gasto"}
+                {isSubmitting ? "Guardando..." : actionLabel}
               </button>
             </div>
           </form>
@@ -614,31 +652,33 @@ export function AdSpendPanel({ sourceLabel, tableName }: AdSpendPanelProps) {
             <RankingCardSkeleton />
             <RankingCardSkeleton />
           </div>
-          <SpendTableSkeleton periodLabel={periodLabel} />
+          <SpendTableSkeleton periodLabel={periodLabel} tableTitle={tableTitle} amountLabel={amountLabel} />
         </div>
       ) : (
         <>
           <div className="grid gap-4 xl:grid-cols-3">
             <article className="rounded-[1.25rem] border border-brand-primary/10 bg-white p-5 shadow-[0_12px_32px_rgba(7,19,37,0.05)]">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#6c7f99]">Gasto total</p>
-              <p className="mt-4 text-4xl font-bold tracking-tight text-brand-primary">{formatUsd(totalSpend)}</p>
-              <p className="mt-3 text-sm text-[#5d728e]">USD según el rango de fecha seleccionado.</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#6c7f99]">{totalTitle}</p>
+              <p className="mt-4 text-4xl font-bold tracking-tight text-brand-primary">{formatValue(totalSpend)}</p>
+              <p className="mt-3 text-sm text-[#5d728e]">{totalHelper}</p>
             </article>
 
-            <RankingSpendCard title="Top 5 ofertas con mayor gasto" rows={highestSpendRows} tone="high" />
-            <RankingSpendCard title="Top 5 ofertas con menor gasto" rows={lowestSpendRows} tone="low" />
+            <RankingSpendCard title={rankingHighTitle} rows={highestSpendRows} tone="high" emptyMessage={emptyPeriodMessage} formatValue={formatValue} />
+            <RankingSpendCard title={rankingLowTitle} rows={lowestSpendRows} tone="low" emptyMessage={emptyPeriodMessage} formatValue={formatValue} />
           </div>
 
           <div className="rounded-[1.5rem] border border-brand-primary/10 bg-white p-5 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
             <div className="flex items-center justify-between gap-4">
-              <h3 className="text-2xl font-bold text-brand-primary">Tabla de gasto</h3>
+              <h3 className="text-2xl font-bold text-brand-primary">{tableTitle}</h3>
               <span className="rounded-full bg-[#edf3ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#315da6]">
                 {periodLabel}
               </span>
             </div>
 
             {tableRows.length === 0 ? (
-              <p className="mt-6 text-sm text-[#5d728e]">No hay gasto registrado en este período.</p>
+              <p className="mt-6 text-sm text-[#5d728e]">
+                {mode === "revenue" ? "No hay revenue registrado en este período." : "No hay gasto registrado en este período."}
+              </p>
             ) : (
               <div className="mt-6 overflow-hidden rounded-[1.25rem] border border-[#d9e1ec]">
                 <table className="min-w-full divide-y divide-[#d9e1ec]">
@@ -646,7 +686,7 @@ export function AdSpendPanel({ sourceLabel, tableName }: AdSpendPanelProps) {
                     <tr className="text-left text-xs uppercase tracking-[0.22em] text-[#6c7f99]">
                       <th className="px-5 py-4">Oferta</th>
                       <th className="px-5 py-4">Fecha</th>
-                      <th className="px-5 py-4">Gasto (USD)</th>
+                      <th className="px-5 py-4">{amountLabel}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#eef3f8] bg-white text-sm text-brand-primary">
@@ -654,7 +694,7 @@ export function AdSpendPanel({ sourceLabel, tableName }: AdSpendPanelProps) {
                       <tr key={row.id}>
                         <td className="px-5 py-4 font-semibold">{row.offerName}</td>
                         <td className="px-5 py-4">{formatDateLabel(row.spendDate)}</td>
-                        <td className="px-5 py-4 font-semibold">{formatUsd(row.amountUsd)}</td>
+                        <td className="px-5 py-4 font-semibold">{formatValue(row.amountUsd)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -712,5 +752,9 @@ export function AdSpendPanel({ sourceLabel, tableName }: AdSpendPanelProps) {
 }
 
 export function FacebookSpendPanel() {
-  return <AdSpendPanel sourceLabel="Facebook Ads" tableName="facebook_offer_spend" />;
+  return <AdSpendPanel sourceLabel="Facebook Ads" tableName="facebook_offer_spend" mode="spend" />;
+}
+
+export function RevenuePanel() {
+  return <AdSpendPanel sourceLabel="Revenue" tableName="offer_revenue" mode="revenue" />;
 }

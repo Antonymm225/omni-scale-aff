@@ -8,7 +8,7 @@ type AppRouteShellProps = {
   children: ReactNode;
 };
 
-const appRoutePrefixes = ["/dashboard", "/offers", "/facebook", "/tiktok", "/users", "/my-account", "/workspace"];
+const appRoutePrefixes = ["/dashboard", "/offers", "/facebook", "/tiktok", "/revenue", "/users", "/my-account", "/workspace"];
 
 export function AppRouteShell({ children }: AppRouteShellProps) {
   const pathname = usePathname();
