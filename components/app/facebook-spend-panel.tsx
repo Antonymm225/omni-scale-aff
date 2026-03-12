@@ -73,9 +73,9 @@ function getDateRange(period: PeriodKey) {
 }
 
 function formatUsd(value: number) {
-  const formatted = new Intl.NumberFormat("es-CO", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 3,
+  const formatted = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(value);
 
   return `$${formatted}`;
