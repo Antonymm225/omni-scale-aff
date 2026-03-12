@@ -1,58 +1,406 @@
 "use client";
 
-import { useAppShell } from "@/components/app/app-shell";
+import { useEffect, useMemo, useState } from "react";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
-const cards = [
-  {
-    title: "Rol activo",
-    value: "Owner",
-    description: "Tienes acceso para gestionar usuarios y permisos del workspace.",
-  },
-  {
-    title: "Módulos listos",
-    value: "5",
-    description: "Dashboard, offers, Facebook Ads, Tiktok Ads y usuarios.",
-  },
-  {
-    title: "Estado",
-    value: "Online",
-    description: "La autenticación y la lectura de perfil están conectadas con Supabase.",
-  },
-] as const;
+type OfferRow = {
+  id: number;
+  offer_number: number | null;
+  name: string;
+};
+
+type SpendRow = {
+  offer_id: number;
+  amount_usd: number;
+};
+
+type RevenueRow = {
+  offer_id: number;
+  amount: number;
+};
+
+type DashboardOfferRow = {
+  id: number;
+  offerNumber: number | null;
+  name: string;
+  revenue: number;
+  spend: number;
+  result: number;
+};
+
+type SortField = "revenue" | "spend" | "result";
+type SortDirection = "desc" | "asc";
+
+function formatCurrency(value: number) {
+  const absoluteValue = Math.abs(value);
+  const formatted = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(absoluteValue);
+
+  return value < 0 ? `-$${formatted}` : `$${formatted}`;
+}
+
+function MetricCard({
+  label,
+  value,
+  tone = "default",
+}: {
+  label: string;
+  value: number;
+  tone?: "default" | "positive" | "negative";
+}) {
+  const valueClass =
+    tone === "positive"
+      ? "text-[#1d7a46]"
+      : tone === "negative"
+        ? "text-[#b4235f]"
+        : "text-brand-primary";
+
+  return (
+    <article className="rounded-[1.5rem] border border-brand-primary/10 bg-white p-5 shadow-[0_12px_32px_rgba(7,19,37,0.05)]">
+      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#6c7f99]">{label}</p>
+      <p className={`mt-4 text-4xl font-bold tracking-tight ${valueClass}`}>{formatCurrency(value)}</p>
+    </article>
+  );
+}
+
+function SortFunnelIcon({ active }: { active: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      className={`h-4 w-4 transition ${active ? "text-brand-primary" : "text-[#8aa0bd]"}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3.5 5.25h13" />
+      <path d="M6 9.5h8" />
+      <path d="M8.5 13.75h3" />
+    </svg>
+  );
+}
+
+function SortHeaderButton({
+  label,
+  active,
+  direction,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  direction: SortDirection;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-2 text-left transition hover:text-brand-primary"
+      aria-label={`${label}. Orden actual ${direction === "desc" ? "de mayor a menor" : "de menor a mayor"}`}
+    >
+      <span>{label}</span>
+      <SortFunnelIcon active={active} />
+    </button>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 xl:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <article
+            key={index}
+            className="rounded-[1.5rem] border border-brand-primary/10 bg-white p-5 shadow-[0_12px_32px_rgba(7,19,37,0.05)]"
+          >
+            <div className="skeleton-shimmer h-5 w-28 rounded-[2px]" />
+            <div className="skeleton-shimmer mt-5 h-11 w-40 rounded-[2px]" />
+          </article>
+        ))}
+      </div>
+
+      <div className="rounded-[1.5rem] border border-brand-primary/10 bg-white p-5 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
+        <div className="skeleton-shimmer h-8 w-48 rounded-[2px]" />
+
+        <div className="mt-6 overflow-hidden rounded-[1.25rem] border border-[#d9e1ec]">
+          <div className="grid grid-cols-5 gap-4 bg-[#f7f9fc] px-5 py-4">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="skeleton-shimmer h-4 rounded-[2px]" />
+            ))}
+          </div>
+
+          <div className="divide-y divide-[#eef3f8] bg-white">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="px-4 py-3">
+                <div className="skeleton-shimmer h-8 rounded-sm" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function DashboardOverview() {
-  const { profile, session } = useAppShell();
-  const name =
-    profile?.full_name ||
-    (typeof session.user.user_metadata?.full_name === "string"
-      ? session.user.user_metadata.full_name
-      : "") ||
-    session.user.email;
+  const supabase = getSupabaseBrowserClient();
+  const [offers, setOffers] = useState<OfferRow[]>([]);
+  const [facebookSpend, setFacebookSpend] = useState<SpendRow[]>([]);
+  const [tiktokSpend, setTiktokSpend] = useState<SpendRow[]>([]);
+  const [revenueRows, setRevenueRows] = useState<RevenueRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [sortState, setSortState] = useState<{ field: SortField; direction: SortDirection } | null>(null);
+
+  useEffect(() => {
+    if (!supabase) {
+      return;
+    }
+
+    const client = supabase;
+    let active = true;
+
+    async function loadDashboard() {
+      setIsLoading(true);
+      setError("");
+
+      const [offersResponse, facebookResponse, tiktokResponse, revenueResponse] = await Promise.all([
+        client.from("offers").select("id,offer_number,name").order("offer_number", { ascending: true, nullsFirst: false }),
+        client.from("facebook_offer_spend").select("offer_id,amount_usd"),
+        client.from("tiktok_offer_spend").select("offer_id,amount_usd"),
+        client.from("offer_revenue").select("offer_id,amount"),
+      ]);
+
+      if (!active) {
+        return;
+      }
+
+      if (offersResponse.error || facebookResponse.error || tiktokResponse.error || revenueResponse.error) {
+        setError("No se pudo cargar el dashboard. Verifica que las tablas y sus politicas existan en Supabase.");
+        setOffers([]);
+        setFacebookSpend([]);
+        setTiktokSpend([]);
+        setRevenueRows([]);
+        setIsLoading(false);
+        return;
+      }
+
+      setOffers((offersResponse.data as OfferRow[]) ?? []);
+      setFacebookSpend(
+        ((facebookResponse.data as SpendRow[]) ?? []).map((row) => ({
+          offer_id: Number(row.offer_id),
+          amount_usd: Number(row.amount_usd ?? 0),
+        })),
+      );
+      setTiktokSpend(
+        ((tiktokResponse.data as SpendRow[]) ?? []).map((row) => ({
+          offer_id: Number(row.offer_id),
+          amount_usd: Number(row.amount_usd ?? 0),
+        })),
+      );
+      setRevenueRows(
+        ((revenueResponse.data as RevenueRow[]) ?? []).map((row) => ({
+          offer_id: Number(row.offer_id),
+          amount: Number(row.amount ?? 0),
+        })),
+      );
+      setIsLoading(false);
+    }
+
+    void loadDashboard();
+
+    return () => {
+      active = false;
+    };
+  }, [supabase]);
+
+  const dashboardRows = useMemo<DashboardOfferRow[]>(() => {
+    const spendByOffer = new Map<number, number>();
+    const revenueByOffer = new Map<number, number>();
+
+    for (const row of facebookSpend) {
+      spendByOffer.set(row.offer_id, (spendByOffer.get(row.offer_id) ?? 0) + row.amount_usd);
+    }
+
+    for (const row of tiktokSpend) {
+      spendByOffer.set(row.offer_id, (spendByOffer.get(row.offer_id) ?? 0) + row.amount_usd);
+    }
+
+    for (const row of revenueRows) {
+      revenueByOffer.set(row.offer_id, (revenueByOffer.get(row.offer_id) ?? 0) + row.amount);
+    }
+
+    return offers
+      .map((offer) => {
+        const revenue = revenueByOffer.get(offer.id) ?? 0;
+        const spend = spendByOffer.get(offer.id) ?? 0;
+
+        return {
+          id: offer.id,
+          offerNumber: offer.offer_number,
+          name: offer.name,
+          revenue,
+          spend,
+          result: revenue - spend,
+        };
+      })
+      .sort((a, b) => {
+        if (a.offerNumber && b.offerNumber) {
+          return a.offerNumber - b.offerNumber;
+        }
+
+        if (a.offerNumber) {
+          return -1;
+        }
+
+        if (b.offerNumber) {
+          return 1;
+        }
+
+        return a.name.localeCompare(b.name);
+      });
+  }, [facebookSpend, offers, revenueRows, tiktokSpend]);
+
+  const sortedDashboardRows = useMemo(() => {
+    if (!sortState) {
+      return dashboardRows;
+    }
+
+    const multiplier = sortState.direction === "desc" ? -1 : 1;
+
+    return [...dashboardRows].sort((a, b) => {
+      const difference = (a[sortState.field] - b[sortState.field]) * multiplier;
+
+      if (difference !== 0) {
+        return difference;
+      }
+
+      if (a.offerNumber && b.offerNumber) {
+        return a.offerNumber - b.offerNumber;
+      }
+
+      return a.name.localeCompare(b.name);
+    });
+  }, [dashboardRows, sortState]);
+
+  const totalRevenue = useMemo(
+    () => dashboardRows.reduce((sum, row) => sum + row.revenue, 0),
+    [dashboardRows],
+  );
+
+  const totalSpend = useMemo(
+    () => dashboardRows.reduce((sum, row) => sum + row.spend, 0),
+    [dashboardRows],
+  );
+
+  const totalResult = totalRevenue - totalSpend;
+  const resultTone = totalResult < 0 ? "negative" : totalResult > 0 ? "positive" : "default";
+
+  if (!supabase) {
+    return (
+      <div className="rounded-[1.25rem] border border-[#d9e1ec] bg-white px-5 py-4 text-sm text-[#4b6283]">
+        No se pudo inicializar Supabase.
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  function toggleSort(field: SortField) {
+    setSortState((current) => {
+      if (!current || current.field !== field) {
+        return { field, direction: "desc" };
+      }
+
+      return {
+        field,
+        direction: current.direction === "desc" ? "asc" : "desc",
+      };
+    });
+  }
 
   return (
     <div className="space-y-6">
-      <div className="rounded-[1.75rem] border border-brand-primary/10 bg-white p-6 shadow-[0_16px_48px_rgba(7,19,37,0.07)]">
-        <p className="text-sm uppercase tracking-[0.28em] text-[#7c3aed]">Owner view</p>
-        <h2 className="mt-3 text-3xl font-bold text-brand-primary">Bienvenido, {name}</h2>
-        <p className="mt-3 max-w-3xl text-base leading-7 text-[#4b6283]">
-          Esta base ya está preparada para crecer hacia una operación con offers, fuentes de tráfico
-          y gestión de usuarios desde un mismo panel.
-        </p>
-      </div>
+      {error ? (
+        <div className="rounded-[1.25rem] border border-[#f1c8d7] bg-[#fff4f8] px-5 py-4 text-sm text-[#a12856]">
+          {error}
+        </div>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-3">
-        {cards.map((card) => (
-          <article
-            key={card.title}
-            className="rounded-[1.5rem] border border-brand-primary/10 bg-white p-6 shadow-[0_16px_48px_rgba(7,19,37,0.05)]"
-          >
-            <p className="text-sm text-[#4b6283]">{card.title}</p>
-            <p className="mt-4 text-4xl font-bold text-brand-primary">
-              {card.title === "Rol activo" ? (profile?.role === "owner" ? "Owner" : "Media Buyer") : card.value}
-            </p>
-            <p className="mt-3 text-sm leading-6 text-[#5d728e]">{card.description}</p>
-          </article>
-        ))}
+        <MetricCard label="Resultado" value={totalResult} tone={resultTone} />
+        <MetricCard label="Revenue" value={totalRevenue} />
+        <MetricCard label="Gasto" value={totalSpend} />
+      </div>
+
+      <div className="rounded-[1.5rem] border border-brand-primary/10 bg-white p-5 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
+        <div className="flex items-center justify-between gap-4">
+          <h3 className="text-2xl font-bold text-brand-primary">Detalle por oferta</h3>
+          <span className="rounded-full bg-[#edf3ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-[#315da6]">
+            General
+          </span>
+        </div>
+
+        {dashboardRows.length === 0 ? (
+          <p className="mt-6 text-sm text-[#5d728e]">Todavia no hay ofertas para mostrar en el dashboard.</p>
+        ) : (
+          <div className="mt-6 overflow-hidden rounded-[1.25rem] border border-[#d9e1ec]">
+            <table className="min-w-full divide-y divide-[#d9e1ec]">
+              <thead className="bg-[#f7f9fc]">
+                <tr className="text-left text-xs uppercase tracking-[0.22em] text-[#6c7f99]">
+                  <th className="px-5 py-4">ID</th>
+                  <th className="px-5 py-4">Nombre</th>
+                  <th className="px-5 py-4">
+                    <SortHeaderButton
+                      label="Revenue"
+                      active={sortState?.field === "revenue"}
+                      direction={sortState?.field === "revenue" ? sortState.direction : "desc"}
+                      onClick={() => toggleSort("revenue")}
+                    />
+                  </th>
+                  <th className="px-5 py-4">
+                    <SortHeaderButton
+                      label="Gasto"
+                      active={sortState?.field === "spend"}
+                      direction={sortState?.field === "spend" ? sortState.direction : "desc"}
+                      onClick={() => toggleSort("spend")}
+                    />
+                  </th>
+                  <th className="px-5 py-4">
+                    <SortHeaderButton
+                      label="Resultado"
+                      active={sortState?.field === "result"}
+                      direction={sortState?.field === "result" ? sortState.direction : "desc"}
+                      onClick={() => toggleSort("result")}
+                    />
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#eef3f8] bg-white text-sm text-brand-primary">
+                {sortedDashboardRows.map((row) => {
+                  const rowResultClass =
+                    row.result < 0 ? "text-[#b4235f]" : row.result > 0 ? "text-[#1d7a46]" : "text-brand-primary";
+
+                  return (
+                    <tr key={row.id}>
+                      <td className="px-5 py-4 font-semibold">{row.offerNumber ? `#${row.offerNumber}` : `#${row.id}`}</td>
+                      <td className="px-5 py-4 font-semibold">{row.name}</td>
+                      <td className="px-5 py-4 font-semibold">{formatCurrency(row.revenue)}</td>
+                      <td className="px-5 py-4 font-semibold">{formatCurrency(row.spend)}</td>
+                      <td className={`px-5 py-4 font-semibold ${rowResultClass}`}>{formatCurrency(row.result)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

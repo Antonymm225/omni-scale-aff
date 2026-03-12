@@ -9,12 +9,15 @@ type OfferOption = {
   name: string;
 };
 
+type ChannelOption = "facebook" | "tiktok";
+
 type AdSpendRecord = {
   id: number;
   offer_id: number;
-  spend_date: string;
-  amount_usd: number;
+  entry_date: string;
+  amount_value: number;
   created_at: string;
+  channel?: ChannelOption | null;
 };
 
 type PeriodKey = "today" | "yesterday" | "7d" | "month";
@@ -22,14 +25,23 @@ type PeriodKey = "today" | "yesterday" | "7d" | "month";
 type RankingRow = {
   offerId: number;
   offerName: string;
-  amountUsd: number;
+  amountValue: number;
 };
 
 type SpendTableRow = {
   id: number;
   offerName: string;
-  spendDate: string;
-  amountUsd: number;
+  entryDate: string;
+  amountValue: number;
+  channel?: ChannelOption | null;
+};
+
+type SpendModalMode = "update" | null;
+
+type AdSpendPanelProps = {
+  sourceLabel: string;
+  tableName: "facebook_offer_spend" | "tiktok_offer_spend" | "offer_revenue";
+  mode: "spend" | "revenue";
 };
 
 const periodOptions: Array<{ key: PeriodKey; label: string }> = [
@@ -90,6 +102,18 @@ function formatDateLabel(value: string) {
   }).format(new Date(`${value}T00:00:00Z`));
 }
 
+function formatChannelLabel(channel?: ChannelOption | null) {
+  if (channel === "facebook") {
+    return "Facebook";
+  }
+
+  if (channel === "tiktok") {
+    return "TikTok";
+  }
+
+  return "-";
+}
+
 function RankingSpendCard({
   title,
   rows,
@@ -130,7 +154,7 @@ function RankingSpendCard({
                 <p className="text-[11px] uppercase tracking-[0.18em] text-[#7c8ea6]">#{index + 1}</p>
                 <p className="truncate text-[15px] font-semibold text-brand-primary">{row.offerName}</p>
               </div>
-              <p className="text-[15px] font-semibold text-brand-primary">{formatValue(row.amountUsd)}</p>
+              <p className="text-[15px] font-semibold text-brand-primary">{formatValue(row.amountValue)}</p>
             </div>
           ))}
         </div>
@@ -170,10 +194,12 @@ function SpendTableSkeleton({
   periodLabel,
   tableTitle,
   amountLabel,
+  showChannel,
 }: {
   periodLabel: string;
   tableTitle: string;
   amountLabel: string;
+  showChannel: boolean;
 }) {
   return (
     <div className="rounded-[1.75rem] border border-brand-primary/10 bg-white p-5 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
@@ -185,9 +211,14 @@ function SpendTableSkeleton({
       </div>
 
       <div className="mt-6 overflow-hidden rounded-[1.5rem] border border-[#d9e1ec]">
-        <div className="grid grid-cols-3 gap-4 bg-[#f7f9fc] px-6 py-4 text-left text-xs uppercase tracking-[0.22em] text-[#6c7f99]">
+        <div
+          className={`grid gap-4 bg-[#f7f9fc] px-6 py-4 text-left text-xs uppercase tracking-[0.22em] text-[#6c7f99] ${
+            showChannel ? "grid-cols-4" : "grid-cols-3"
+          }`}
+        >
           <div>Oferta</div>
           <div>Fecha</div>
+          {showChannel ? <div>Canal</div> : null}
           <div>{amountLabel}</div>
         </div>
 
@@ -202,14 +233,6 @@ function SpendTableSkeleton({
     </div>
   );
 }
-
-type SpendModalMode = "update" | null;
-
-type AdSpendPanelProps = {
-  sourceLabel: string;
-  tableName: "facebook_offer_spend" | "tiktok_offer_spend" | "offer_revenue";
-  mode: "spend" | "revenue";
-};
 
 export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps) {
   const rowsPerPage = 10;
@@ -227,17 +250,18 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
     offerId: "",
     spendDate: getTodayDateString(),
     amountUsd: "",
+    channel: "facebook" as ChannelOption,
   });
 
   const periodLabel = periodOptions.find((option) => option.key === period)?.label ?? "Hoy";
   const fractionDigits = mode === "revenue" ? 3 : 2;
   const formatValue = (value: number) => formatCurrency(value, fractionDigits);
-  const formatTotalValue = (value: number) => formatCurrency(value, mode === "revenue" ? 2 : 2);
+  const formatTotalValue = (value: number) => formatCurrency(value, 2);
   const dateColumn = mode === "revenue" ? "revenue_date" : "spend_date";
   const amountColumn = mode === "revenue" ? "amount" : "amount_usd";
   const selectColumns =
     mode === "revenue"
-      ? "id,offer_id,revenue_date,amount,created_at"
+      ? "id,offer_id,revenue_date,amount,channel,created_at"
       : "id,offer_id,spend_date,amount_usd,created_at";
   const actionLabel = mode === "revenue" ? "Actualizar revenue" : "Actualizar gasto";
   const totalTitle = mode === "revenue" ? "Total revenue" : "Gasto total";
@@ -262,7 +286,7 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
   const successMessage = mode === "revenue" ? "Revenue actualizado correctamente." : "Gasto actualizado correctamente.";
   const modalDescription =
     mode === "revenue"
-      ? "Actualiza el revenue de una oferta. Si no existe, se crea automáticamente."
+      ? "Actualiza el revenue de una oferta por canal. Si no existe, se crea automáticamente."
       : "Actualiza el monto de una oferta. Si no existe, se crea automáticamente.";
 
   useEffect(() => {
@@ -307,13 +331,16 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
         setSpendRows([]);
         setError(`No se pudo cargar el ${loadLabel}. Verifica que la tabla y sus políticas ya existan en Supabase.`);
       } else {
+        const responseRows = (spendResponse.data as unknown as Array<Record<string, unknown>>) ?? [];
+
         setSpendRows(
-          ((spendResponse.data as Array<Record<string, unknown>>) ?? []).map((row) => ({
+          responseRows.map((row) => ({
             id: Number(row.id),
             offer_id: Number(row.offer_id),
-            spend_date: String(row[dateColumn]),
-            amount_usd: Number(row[amountColumn] ?? 0),
+            entry_date: String(row[dateColumn]),
+            amount_value: Number(row[amountColumn] ?? 0),
             created_at: String(row.created_at ?? ""),
+            channel: mode === "revenue" ? ((row.channel as ChannelOption | undefined) ?? null) : null,
           })),
         );
       }
@@ -324,7 +351,7 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
     return () => {
       active = false;
     };
-  }, [amountColumn, dateColumn, loadLabel, period, selectColumns, sourceLabel, supabase, tableName]);
+  }, [amountColumn, dateColumn, loadLabel, mode, period, selectColumns, supabase, tableName]);
 
   const offersById = useMemo(() => {
     return new Map(
@@ -336,30 +363,30 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
   }, [offers]);
 
   const totalSpend = useMemo(() => {
-    return spendRows.reduce((sum, row) => sum + Number(row.amount_usd ?? 0), 0);
+    return spendRows.reduce((sum, row) => sum + Number(row.amount_value ?? 0), 0);
   }, [spendRows]);
 
   const rankingRows = useMemo<RankingRow[]>(() => {
     const totalsByOffer = new Map<number, number>();
 
     for (const row of spendRows) {
-      totalsByOffer.set(row.offer_id, (totalsByOffer.get(row.offer_id) ?? 0) + Number(row.amount_usd ?? 0));
+      totalsByOffer.set(row.offer_id, (totalsByOffer.get(row.offer_id) ?? 0) + Number(row.amount_value ?? 0));
     }
 
-    return [...totalsByOffer.entries()].map(([offerId, amountUsd]) => ({
+    return [...totalsByOffer.entries()].map(([offerId, amountValue]) => ({
       offerId,
       offerName: offersById.get(offerId) ?? `Oferta #${offerId}`,
-      amountUsd: Number(amountUsd.toFixed(3)),
+      amountValue: Number(amountValue.toFixed(3)),
     }));
   }, [offersById, spendRows]);
 
   const highestSpendRows = useMemo(
-    () => [...rankingRows].sort((a, b) => b.amountUsd - a.amountUsd).slice(0, 5),
+    () => [...rankingRows].sort((a, b) => b.amountValue - a.amountValue).slice(0, 5),
     [rankingRows],
   );
 
   const lowestSpendRows = useMemo(
-    () => [...rankingRows].sort((a, b) => a.amountUsd - b.amountUsd).slice(0, 5),
+    () => [...rankingRows].sort((a, b) => a.amountValue - b.amountValue).slice(0, 5),
     [rankingRows],
   );
 
@@ -367,8 +394,9 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
     return spendRows.map((row) => ({
       id: row.id,
       offerName: offersById.get(row.offer_id) ?? `Oferta #${row.offer_id}`,
-      spendDate: row.spend_date,
-      amountUsd: Number(row.amount_usd ?? 0),
+      entryDate: row.entry_date,
+      amountValue: Number(row.amount_value ?? 0),
+      channel: row.channel ?? null,
     }));
   }, [offersById, spendRows]);
 
@@ -385,7 +413,10 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
     setSpendRows((current) => {
       const nextRows = [...current];
       const existingIndex = nextRows.findIndex(
-        (row) => row.offer_id === nextRow.offer_id && row.spend_date === nextRow.spend_date,
+        (row) =>
+          row.offer_id === nextRow.offer_id &&
+          row.entry_date === nextRow.entry_date &&
+          (mode === "revenue" ? row.channel === nextRow.channel : true),
       );
 
       if (existingIndex >= 0) {
@@ -395,16 +426,16 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
       }
 
       return nextRows.sort((a, b) => {
-        if (a.spend_date === b.spend_date) {
+        if (a.entry_date === b.entry_date) {
           return b.id - a.id;
         }
 
-        return b.spend_date.localeCompare(a.spend_date);
+        return b.entry_date.localeCompare(a.entry_date);
       });
     });
   }
 
-  function openModal(mode: Exclude<SpendModalMode, null>) {
+  function openModal(nextMode: Exclude<SpendModalMode, null>) {
     setError("");
     setSuccess("");
 
@@ -414,9 +445,10 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
       ...current,
       offerId: current.offerId || defaultOfferId,
       spendDate: current.spendDate || getTodayDateString(),
+      channel: current.channel || "facebook",
     }));
 
-    setModalMode(mode);
+    setModalMode(nextMode);
   }
 
   function closeModal() {
@@ -428,9 +460,9 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
     setError("");
     setSuccess("");
 
-    const supabase = getSupabaseBrowserClient();
+    const client = getSupabaseBrowserClient();
 
-    if (!supabase) {
+    if (!client) {
       setError("No se pudo inicializar Supabase.");
       return;
     }
@@ -453,40 +485,53 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
       return;
     }
 
+    if (mode === "revenue" && !updateForm.channel) {
+      setError("Selecciona un canal.");
+      return;
+    }
+
     setIsSubmitting(true);
 
-    const { data, error: upsertError } = await supabase
+    const payload: Record<string, string | number> = {
+      offer_id: offerId,
+      [dateColumn]: updateForm.spendDate,
+      [amountColumn]: amountUsd,
+    };
+
+    if (mode === "revenue") {
+      payload.channel = updateForm.channel;
+    }
+
+    const { data, error: upsertError } = await client
       .from(tableName)
-      .upsert(
-        {
-          offer_id: offerId,
-          [dateColumn]: updateForm.spendDate,
-          [amountColumn]: amountUsd,
-        },
-        {
-          onConflict: `offer_id,${dateColumn}`,
-        },
-      )
+      .upsert(payload, {
+        onConflict: mode === "revenue" ? `offer_id,${dateColumn},channel` : `offer_id,${dateColumn}`,
+      })
       .select(selectColumns)
       .single();
 
     if (upsertError) {
-      setError("No se pudo actualizar el gasto.");
+      setError(mode === "revenue" ? "No se pudo actualizar el revenue." : "No se pudo actualizar el gasto.");
       setIsSubmitting(false);
       return;
     }
 
+    const responseRow = data as unknown as Record<string, unknown>;
+
     mergeSpendRow({
-      id: Number(data.id),
-      offer_id: Number(data.offer_id),
-      spend_date: String(data[dateColumn as keyof typeof data]),
-      amount_usd: Number(data[amountColumn as keyof typeof data] ?? 0),
-      created_at: String(data.created_at ?? ""),
+      id: Number(responseRow.id),
+      offer_id: Number(responseRow.offer_id),
+      entry_date: String(responseRow[dateColumn]),
+      amount_value: Number(responseRow[amountColumn] ?? 0),
+      created_at: String(responseRow.created_at ?? ""),
+      channel: mode === "revenue" ? ((responseRow.channel as ChannelOption | undefined) ?? null) : null,
     });
+
     setUpdateForm({
       offerId: updateForm.offerId,
       spendDate: getTodayDateString(),
       amountUsd: "",
+      channel: updateForm.channel,
     });
     setCurrentPage(1);
     setSuccess(successMessage);
@@ -622,6 +667,24 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
                 />
               </label>
 
+              {mode === "revenue" ? (
+                <label className="space-y-2">
+                  <span className="text-sm font-semibold text-brand-primary">Canal</span>
+                  <select
+                    value={updateForm.channel}
+                    onChange={(event) => {
+                      const nextValue = event.target.value as ChannelOption;
+                      setUpdateForm((current) => ({ ...current, channel: nextValue }));
+                    }}
+                    className="w-full rounded-[12px] border border-[#cbd5e1] bg-white px-4 py-3 text-sm outline-none focus:border-[#1e3a8a]"
+                    required
+                  >
+                    <option value="facebook">Facebook</option>
+                    <option value="tiktok">TikTok</option>
+                  </select>
+                </label>
+              ) : null}
+
               <label className="space-y-2">
                 <span className="text-sm font-semibold text-brand-primary">{amountFieldLabel}</span>
                 <div className="flex items-center rounded-[12px] border border-[#cbd5e1] bg-white focus-within:border-[#1e3a8a]">
@@ -673,7 +736,12 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
             <RankingCardSkeleton />
             <RankingCardSkeleton />
           </div>
-          <SpendTableSkeleton periodLabel={periodLabel} tableTitle={tableTitle} amountLabel={amountLabel} />
+          <SpendTableSkeleton
+            periodLabel={periodLabel}
+            tableTitle={tableTitle}
+            amountLabel={amountLabel}
+            showChannel={mode === "revenue"}
+          />
         </div>
       ) : (
         <>
@@ -684,8 +752,20 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
               <p className="mt-3 text-sm text-[#5d728e]">{totalHelper}</p>
             </article>
 
-            <RankingSpendCard title={rankingHighTitle} rows={highestSpendRows} tone="high" emptyMessage={emptyPeriodMessage} formatValue={formatValue} />
-            <RankingSpendCard title={rankingLowTitle} rows={lowestSpendRows} tone="low" emptyMessage={emptyPeriodMessage} formatValue={formatValue} />
+            <RankingSpendCard
+              title={rankingHighTitle}
+              rows={highestSpendRows}
+              tone="high"
+              emptyMessage={emptyPeriodMessage}
+              formatValue={formatValue}
+            />
+            <RankingSpendCard
+              title={rankingLowTitle}
+              rows={lowestSpendRows}
+              tone="low"
+              emptyMessage={emptyPeriodMessage}
+              formatValue={formatValue}
+            />
           </div>
 
           <div className="rounded-[1.5rem] border border-brand-primary/10 bg-white p-5 shadow-[0_16px_44px_rgba(7,19,37,0.05)]">
@@ -707,6 +787,7 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
                     <tr className="text-left text-xs uppercase tracking-[0.22em] text-[#6c7f99]">
                       <th className="px-5 py-4">Oferta</th>
                       <th className="px-5 py-4">Fecha</th>
+                      {mode === "revenue" ? <th className="px-5 py-4">Canal</th> : null}
                       <th className="px-5 py-4">{amountLabel}</th>
                     </tr>
                   </thead>
@@ -714,8 +795,11 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
                     {tableRows.map((row) => (
                       <tr key={row.id}>
                         <td className="px-5 py-4 font-semibold">{row.offerName}</td>
-                        <td className="px-5 py-4">{formatDateLabel(row.spendDate)}</td>
-                        <td className="px-5 py-4 font-semibold">{formatValue(row.amountUsd)}</td>
+                        <td className="px-5 py-4">{formatDateLabel(row.entryDate)}</td>
+                        {mode === "revenue" ? (
+                          <td className="px-5 py-4 font-semibold">{formatChannelLabel(row.channel)}</td>
+                        ) : null}
+                        <td className="px-5 py-4 font-semibold">{formatValue(row.amountValue)}</td>
                       </tr>
                     ))}
                   </tbody>
