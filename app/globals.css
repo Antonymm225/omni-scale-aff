@@ -60,7 +60,7 @@ h6 {
 .skeleton-shimmer {
   position: relative;
   overflow: hidden;
-  background: #dde3ea;
+  background: #e7ecf2;
 }
 
 .skeleton-shimmer::after {

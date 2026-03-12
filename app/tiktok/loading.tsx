@@ -1,5 +1,5 @@
-import { AppPageSkeleton } from "@/components/app/app-page-skeleton";
+import { OffersLikeLoading } from "@/components/app/offers-like-loading";
 
 export default function Loading() {
-  return <AppPageSkeleton cards={1} showTable={false} />;
+  return <OffersLikeLoading titleWidthClass="w-48" />;
 }

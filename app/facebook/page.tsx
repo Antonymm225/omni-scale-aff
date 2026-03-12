@@ -1,16 +1,10 @@
 import { AppPage } from "@/components/app/app-page";
-import { SectionPlaceholder } from "@/components/app/section-placeholder";
+import { FacebookSpendPanel } from "@/components/app/facebook-spend-panel";
 
 export default function FacebookPage() {
   return (
-    <AppPage
-      title="Facebook Ads"
-      description="Espacio preparado para la conexión de cuentas, campañas y lectura operativa desde Meta."
-    >
-      <SectionPlaceholder
-        title="Módulo de Facebook Ads"
-        description="Aquí conectaremos luego métricas, cuentas publicitarias y sincronizaciones enfocadas en la operación de owner y media buyers."
-      />
+    <AppPage title="Facebook Ads">
+      <FacebookSpendPanel />
     </AppPage>
   );
 }
