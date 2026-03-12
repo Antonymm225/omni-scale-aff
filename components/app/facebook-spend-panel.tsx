@@ -232,6 +232,13 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
   const periodLabel = periodOptions.find((option) => option.key === period)?.label ?? "Hoy";
   const fractionDigits = mode === "revenue" ? 3 : 2;
   const formatValue = (value: number) => formatCurrency(value, fractionDigits);
+  const formatTotalValue = (value: number) => formatCurrency(value, mode === "revenue" ? 2 : 2);
+  const dateColumn = mode === "revenue" ? "revenue_date" : "spend_date";
+  const amountColumn = mode === "revenue" ? "amount" : "amount_usd";
+  const selectColumns =
+    mode === "revenue"
+      ? "id,offer_id,revenue_date,amount,created_at"
+      : "id,offer_id,spend_date,amount_usd,created_at";
   const actionLabel = mode === "revenue" ? "Actualizar revenue" : "Actualizar gasto";
   const totalTitle = mode === "revenue" ? "Total revenue" : "Gasto total";
   const totalHelper =
@@ -270,10 +277,10 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
       supabase.from("offers").select("id,offer_number,name").order("name"),
       supabase
         .from(tableName)
-        .select("id,offer_id,spend_date,amount_usd,created_at")
-        .gte("spend_date", start)
-        .lte("spend_date", end)
-        .order("spend_date", { ascending: false })
+        .select(selectColumns)
+        .gte(dateColumn, start)
+        .lte(dateColumn, end)
+        .order(dateColumn, { ascending: false })
         .order("id", { ascending: false }),
     ]).then(([offersResponse, spendResponse]) => {
       if (!active) {
@@ -300,7 +307,15 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
         setSpendRows([]);
         setError(`No se pudo cargar el ${loadLabel}. Verifica que la tabla y sus políticas ya existan en Supabase.`);
       } else {
-        setSpendRows((spendResponse.data as AdSpendRecord[]) ?? []);
+        setSpendRows(
+          ((spendResponse.data as Array<Record<string, unknown>>) ?? []).map((row) => ({
+            id: Number(row.id),
+            offer_id: Number(row.offer_id),
+            spend_date: String(row[dateColumn]),
+            amount_usd: Number(row[amountColumn] ?? 0),
+            created_at: String(row.created_at ?? ""),
+          })),
+        );
       }
 
       setIsLoading(false);
@@ -309,7 +324,7 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
     return () => {
       active = false;
     };
-  }, [loadLabel, period, sourceLabel, supabase, tableName]);
+  }, [amountColumn, dateColumn, loadLabel, period, selectColumns, sourceLabel, supabase, tableName]);
 
   const offersById = useMemo(() => {
     return new Map(
@@ -445,14 +460,14 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
       .upsert(
         {
           offer_id: offerId,
-          spend_date: updateForm.spendDate,
-          amount_usd: amountUsd,
+          [dateColumn]: updateForm.spendDate,
+          [amountColumn]: amountUsd,
         },
         {
-          onConflict: "offer_id,spend_date",
+          onConflict: `offer_id,${dateColumn}`,
         },
       )
-      .select("id,offer_id,spend_date,amount_usd,created_at")
+      .select(selectColumns)
       .single();
 
     if (upsertError) {
@@ -461,7 +476,13 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
       return;
     }
 
-    mergeSpendRow(data as AdSpendRecord);
+    mergeSpendRow({
+      id: Number(data.id),
+      offer_id: Number(data.offer_id),
+      spend_date: String(data[dateColumn as keyof typeof data]),
+      amount_usd: Number(data[amountColumn as keyof typeof data] ?? 0),
+      created_at: String(data.created_at ?? ""),
+    });
     setUpdateForm({
       offerId: updateForm.offerId,
       spendDate: getTodayDateString(),
@@ -659,7 +680,7 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
           <div className="grid gap-4 xl:grid-cols-3">
             <article className="rounded-[1.25rem] border border-brand-primary/10 bg-white p-5 shadow-[0_12px_32px_rgba(7,19,37,0.05)]">
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#6c7f99]">{totalTitle}</p>
-              <p className="mt-4 text-4xl font-bold tracking-tight text-brand-primary">{formatValue(totalSpend)}</p>
+              <p className="mt-4 text-4xl font-bold tracking-tight text-brand-primary">{formatTotalValue(totalSpend)}</p>
               <p className="mt-3 text-sm text-[#5d728e]">{totalHelper}</p>
             </article>
 
