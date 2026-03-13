@@ -435,6 +435,19 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
     });
   }
 
+  function removeSpendRow(target: { offerId: number; entryDate: string; channel?: ChannelOption | null }) {
+    setSpendRows((current) =>
+      current.filter(
+        (row) =>
+          !(
+            row.offer_id === target.offerId &&
+            row.entry_date === target.entryDate &&
+            (mode === "revenue" ? row.channel === (target.channel ?? null) : true)
+          ),
+      ),
+    );
+  }
+
   function openModal(nextMode: Exclude<SpendModalMode, null>) {
     setError("");
     setSuccess("");
@@ -491,6 +504,39 @@ export function AdSpendPanel({ sourceLabel, tableName, mode }: AdSpendPanelProps
     }
 
     setIsSubmitting(true);
+
+    if (amountUsd === 0) {
+      let deleteQuery = client.from(tableName).delete().eq("offer_id", offerId).eq(dateColumn, updateForm.spendDate);
+
+      if (mode === "revenue") {
+        deleteQuery = deleteQuery.eq("channel", updateForm.channel);
+      }
+
+      const { error: deleteError } = await deleteQuery;
+
+      if (deleteError) {
+        setError(mode === "revenue" ? "No se pudo eliminar el revenue." : "No se pudo eliminar el gasto.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      removeSpendRow({
+        offerId,
+        entryDate: updateForm.spendDate,
+        channel: mode === "revenue" ? updateForm.channel : null,
+      });
+      setUpdateForm({
+        offerId: updateForm.offerId,
+        spendDate: getTodayDateString(),
+        amountUsd: "",
+        channel: updateForm.channel,
+      });
+      setCurrentPage(1);
+      setSuccess(mode === "revenue" ? "Revenue eliminado correctamente." : "Gasto eliminado correctamente.");
+      closeModal();
+      setIsSubmitting(false);
+      return;
+    }
 
     const payload: Record<string, string | number> = {
       offer_id: offerId,
